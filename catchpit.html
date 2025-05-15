@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuDS Enviro - Catchpit Configurator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        /* Internal CSS specific to the Catchpit Configurator Form */
+        :root {
+            --suds-blue: #1d80b9; --suds-green: #54b54d; --suds-red: #c34c4a;
+            --suds-text-dark: #333; --suds-text-heading: var(--suds-blue);
+            --suds-text-label-green: var(--suds-green); --suds-border-light: #d1d5db;
+            --suds-bg-light: #f9fafb; --suds-bg-conditional: #eef7ff;
+            --suds-select-bg: #e0e8f0; --suds-select-arrow: var(--suds-blue);
+        }
+        .suds-configurator-form {
+            max-width: 750px; margin: 20px auto; padding: 30px; background: #fff;
+            border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+        }
+        .suds-form-section {
+            border: 1px solid var(--suds-border-light); padding: 25px; margin-bottom: 30px;
+            border-radius: 6px; background-color: var(--suds-bg-light);
+        }
+        .suds-configurator-form h2, .suds-configurator-form h3 {
+            color: var(--suds-text-heading); font-weight: 700; margin-top: 0;
+            padding-bottom: 12px; border-bottom: 2px solid var(--suds-blue);
+            text-transform: uppercase;
+        }
+        .suds-configurator-form h2 { font-size: 1.8em; margin-bottom: 25px; }
+        .suds-configurator-form h3 { font-size: 1.4em; margin-bottom: 20px; margin-top: 30px; border-bottom-width: 1px; }
+        .suds-form-group { margin-bottom: 20px; }
+        .suds-label {
+            display: block; margin-bottom: 8px; font-weight: 600;
+            color: var(--suds-text-label-green); font-size: 0.95em;
+        }
+        .suds-input, .suds-select {
+            width: 100%; padding: 12px 15px; border: 1px solid var(--suds-border-light);
+            border-radius: 20px; box-sizing: border-box; font-size: 0.95em;
+            color: var(--suds-text-dark); transition: all 0.2s ease;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .suds-input { background-color: #fff; }
+        .suds-input[readonly] { background-color: #f3f4f6; cursor: not-allowed; }
+        .suds-select {
+            background-color: var(--suds-select-bg); appearance: none; -webkit-appearance: none; -moz-appearance: none;
+            padding-right: 40px; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231d80b9%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat; background-position: right 15px center; background-size: 12px 12px; cursor: pointer;
+        }
+         .suds-select:disabled { background-color: #e5e7eb; cursor: not-allowed; opacity: 0.7; }
+        .suds-input:focus, .suds-select:focus { border-color: var(--suds-blue); outline: none; box-shadow: 0 0 0 3px rgba(29, 128, 185, 0.3); }
+        .suds-input::placeholder { color: #a0aec0; }
+        .suds-radio-group, .suds-checkbox-group { display: flex; flex-wrap: wrap; gap: 25px; align-items: center; padding: 5px 0;}
+        .suds-radio-group div, .suds-checkbox-group div { display: flex; align-items: center; }
+        .suds-radio-group label, .suds-checkbox-group label { font-weight: 500; color: var(--suds-text-dark); margin-left: 5px; cursor: pointer; }
+        .suds-radio-group input[type="radio"], .suds-checkbox-group input[type="checkbox"] { margin-right: 0; cursor: pointer; accent-color: var(--suds-blue); width: 1em; height: 1em; }
+        .suds-button { padding: 12px 20px; border: none; border-radius: 25px; cursor: pointer; font-size: 0.95em; font-weight: 600; text-align: center; transition: all 0.2s ease; letter-spacing: 0.5px; display: inline-block; }
+        .suds-button:hover { opacity: 0.9; transform: translateY(-1px); }
+        .suds-submit-btn { background-color: var(--suds-blue); color: white; width: 100%; display: block; margin-top: 25px; font-size: 1em; font-weight: 700; padding: 14px 25px; }
+        .suds-submit-btn:hover { background-color: #186a9e; }
+        #suds_product_code_display_container { margin-top: 25px; margin-bottom: 20px; padding: 15px; background-color: var(--suds-bg-conditional); border: 1px solid var(--suds-blue); border-radius: 8px; text-align: center; }
+        #suds_product_code_display_label { font-weight: 600; color: var(--suds-text-heading); display: block; margin-bottom: 5px; font-size: 0.9em; }
+        #suds_product_code_display { font-weight: 700; color: var(--suds-text-dark); font-size: 1.1em; word-break: break-all; }
+        #suds_submit_status { margin-top: 20px; font-weight: 500; text-align: center; padding: 12px; border-radius: 6px; }
+        .suds_status_success { background-color: #e8f5e9; color: var(--suds-green); border: 1px solid var(--suds-green); }
+        .suds_status_error { background-color: #ffebee; color: var(--suds-red); border: 1px solid var(--suds-red); }
+        .suds-error-message { color: var(--suds-red); font-size: 0.85em; margin-top: 6px; }
+        .suds-conditional-options{padding:15px;border-left:4px solid var(--suds-blue);margin-top:15px;margin-bottom:15px;background-color:#fff;border-radius:6px;box-shadow:inset 2px 0 5px rgba(29,128,185,.05)}
+        #shopping_list_details{border:1px solid var(--suds-blue);border-radius:8px;margin-top:30px;background-color:#fdfdfe}#shopping_list_summary{font-weight:700;font-size:1.1em;padding:15px 20px;cursor:pointer;color:var(--suds-blue);display:block;list-style:none;position:relative}#shopping_list_summary::-webkit-details-marker{display:none}#shopping_list_summary::after{content:'▼';font-size:.8em;position:absolute;right:20px;top:50%;transform:translateY(-50%);transition:transform .2s ease-out}#shopping_list_details[open]>#shopping_list_summary::after{transform:translateY(-50%) rotate(180deg)}
+        #shopping_list_container{padding:0 20px 20px}
+        #shopping_list_items{list-style:none;padding:0;margin:0 0 15px;max-height:300px;overflow-y:auto;border-bottom:1px solid var(--suds-border-light);padding-bottom:15px}#shopping_list_items li{display:flex;justify-content:space-between;padding:8px 0;font-size:.9em;border-bottom:1px dashed #e5e7eb}#shopping_list_items li:last-child{border-bottom:none}#shopping_list_items .item-description{color:var(--suds-text-dark)}#shopping_list_items .item-cost{font-weight:600;color:var(--suds-green)}
+        .quote-calculation-area { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--suds-border-light); }
+        .markup-group { margin-bottom: 15px; max-width: 250px; }
+        .markup-group .suds-input { border-radius: 6px; }
+        .markup-group .suds-label { color: var(--suds-text-dark); font-weight: 500;}
+        #shopping_list_total, #shopping_list_sell_price { text-align: right; font-size: 1.1em; font-weight: 600; padding: 5px 0; }
+        #shopping_list_total span, #shopping_list_sell_price span { display: inline-block; }
+        #cost_price_label, #sell_price_label { color: var(--suds-text-heading); margin-right: 10px; font-weight: 700; }
+        #cost_price_value, #sell_price_value { color: var(--suds-green); font-weight: 700; min-width: 70px; }
+        #sell_price_value { color: var(--suds-blue); }
+        @media (max-width: 768px){
+            .suds-configurator-form h2{font-size:1.6em}
+            .suds-configurator-form h3{font-size:1.3em}
+            .suds-configurator-form{padding:20px}
+            #shopping_list_summary::after{display:none}
+            .markup-group {max-width: none;}
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar">
+    <a href="index.html" class="nav-logo">
+        <img src="assets/images/logo_horizontal.png" alt="SuDS Enviro Logo">
+    </a>
+    <button class="menu-toggle" id="mobileMenuToggle" aria-label="Toggle Menu" aria-expanded="false">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Tools Hub</a></li>
+        <li><a href="planner.html">Drainage Planner</a></li>
+        <li><a href="all_configs.html">Saved Configurations</a></li>
+        <li><a href="catchpit.html" class="active">Catchpit Config</a></li>
+        <li><a href="orifice.html">Orifice Config</a></li>
+        <li><a href="universal_chamber.html">Chamber Config</a></li>
+        <li><a href="separator.html">Separator Config</a></li>
+    </ul>
+</nav>
+
+    <form id="sudsCatchpitForm" class="suds-configurator-form">
+        <!-- NEW: Customer/Project Name Input -->
+        <div class="suds-form-group">
+            <label class="suds-label" for="customer_project_name" style="color: var(--suds-blue); font-weight: 700;">Customer / Project Name:</label>
+            <input type="text" id="customer_project_name" name="customer_project_name" class="suds-input" placeholder="e.g., Bob Co. - Site A (Leave blank for default project)">
+        </div>
+        <hr style="margin: 5px 0 25px 0;">
+        <!-- END NEW INPUT -->
+
+        <div class="suds-form-section">
+            <h2>Catchpit Configuration</h2>
+            <!-- ... rest of your original form content from here ... -->
+            <h3>Catchpit Properties</h3>
+            <div class="suds-form-group">
+                <label class="suds-label" for="cp_type">Catchpit Type:</label>
+                <select class="suds-select" id="cp_type" name="cp_type" required>
+                    <option value="">-- Select Type --</option>
+                    <option value="Standard">Standard</option>
+                    <option value="Bucket">Bucket</option>
+                    <option value="Dual Filter">Dual Filter</option>
+                </select>
+            </div>
+            <div class="suds-form-group">
+                <label class="suds-label">Adoptable Status:</label>
+                <div class="suds-radio-group" id="adoptable_status_group">
+                     <div>
+                        <input type="radio" id="adoptable_yes" name="adoptable_status" value="adoptable" required>
+                        <label for="adoptable_yes">Adoptable</label>
+                     </div>
+                     <div>
+                        <input type="radio" id="adoptable_no" name="adoptable_status" value="non_adoptable" required>
+                        <label for="adoptable_no">Non-Adoptable</label>
+                     </div>
+                </div>
+             </div>
+            <div class="suds-form-group">
+                <label class="suds-label" for="cp_depth">Chamber depth (mm):</label>
+                <select class="suds-select" id="cp_depth" name="cp_depth" required disabled>
+                    <option value="">-- Select Adoptable Status First --</option>
+                </select>
+            </div>
+            <div class="suds-form-group">
+                 <label class="suds-label" for="cp_pipework_diameter">Pipework Diameter (mm):</label>
+                 <select class="suds-select" id="cp_pipework_diameter" name="cp_pipework_diameter" required>
+                     <option value="">-- Select Size --</option>
+                     <option value="110mm">110mm</option>
+                     <option value="160mm">160mm</option>
+                     <option value="225mm">225mm</option>
+                 </select>
+             </div>
+
+            <h3>Functionality</h3>
+             <div class="suds-form-group">
+                <label class="suds-label" for="cp_target_pollutant">Target Pollutant:</label>
+                <select class="suds-select" id="cp_target_pollutant" name="cp_target_pollutant" required>
+                    <option value="">-- Select Target --</option>
+                    <option value="Silt">Silt</option>
+                    <option value="Leaves">Leaves</option>
+                    <option value="Oils">Oils</option>
+                    <option value="All">All (General Debris)</option>
+                </select>
+            </div>
+            <div class="suds-form-group">
+                <label class="suds-label">Removable Bucket?</label>
+                 <div class="suds-radio-group" id="removable_bucket_group">
+                     <div>
+                        <input type="radio" id="bucket_yes" name="removable_bucket" value="yes">
+                        <label for="bucket_yes">Yes</label>
+                     </div>
+                     <div>
+                        <input type="radio" id="bucket_no" name="removable_bucket" value="no" checked>
+                        <label for="bucket_no">No</label>
+                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="suds_product_code_display_container">
+            <span id="suds_product_code_display_label">Generated Product Code:</span>
+            <span id="suds_product_code_display">Please make selections...</span>
+        </div>
+
+        <details id="shopping_list_details">
+            <summary id="shopping_list_summary">Estimated Quote / Shopping List</summary>
+            <div id="shopping_list_container">
+                <ul id="shopping_list_items">
+                    <li>Select options to see quote...</li>
+                </ul>
+                <div class="quote-calculation-area">
+                    <div class="suds-form-group markup-group">
+                        <label class="suds-label" for="profit_markup_percent">Profit Markup (%):</label>
+                        <input type="number" id="profit_markup_percent" name="profit_markup_percent" class="suds-input" min="0" step="0.1" value="0" placeholder="e.g., 15.5">
+                    </div>
+                    <div id="shopping_list_total">
+                        <span id="cost_price_label">Cost Price:</span>
+                        <span id="cost_price_value">£0.00</span>
+                    </div>
+                    <div id="shopping_list_sell_price">
+                        <span id="sell_price_label">Sell Price (inc. Markup):</span>
+                        <span id="sell_price_value">£0.00</span>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <button type="submit" class="suds-submit-btn">Submit Catchpit Configuration</button>
+        <div id="suds_submit_status"></div>
+    </form>
+
+    <script src="js/catchpit.js" defer></script>
+    <script src="js/main.js" defer></script>
+</body>
+</html>

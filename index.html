@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuDS Enviro - Internal Tools Hub</title>
+    <link rel="stylesheet" href="css/style.css"> <!-- Shared CSS -->
+    <style>
+        /* Styles specific to index.html hub page - These can remain internal or be moved to style.css with a body class */
+        body.page-hub { /* Add class="page-hub" to body tag in THIS file */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start; /* Changed from center to align with navbar */
+            min-height: 100vh;
+            /* padding-top is handled by global style.css body rule */
+        }
+        .hub-container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-top: 30px; /* Space from navbar, adjust as needed after global padding-top */
+            max-width: 800px;
+            width: 90%;
+        }
+        .hub-container h1 {
+            color: var(--suds-blue);
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+        .tool-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            list-style: none;
+            padding: 0;
+        }
+        .tool-links li a {
+            display: block;
+            background-color: var(--suds-green);
+            color: white;
+            padding: 18px 25px;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 1.05em;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .tool-links li a:hover {
+            background-color: #4a9d45;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+         .tool-links li a.planner-link { background-color: var(--suds-blue); }
+         .tool-links li a.planner-link:hover { background-color: #16699b; }
+         .tool-links li a.configs-link { background-color: var(--suds-text-dark); }
+         .tool-links li a.configs-link:hover { background-color: #555; }
+    </style>
+</head>
+<body class="page-hub"> <!-- Added class for specific body styling -->
+    <!-- NEW NAVBAR - Standardized -->
+<nav class="navbar">
+    <a href="index.html" class="nav-logo">
+        <img src="assets/images/logo_horizontal.png" alt="SuDS Enviro Logo"> <!-- Standardized Logo Path -->
+    </a>
+    <button class="menu-toggle" id="mobileMenuToggle" aria-label="Toggle Menu" aria-expanded="false">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+        <li><a href="index.html" class="active">Tools Hub</a></li> <!-- Active Link -->
+        <li><a href="planner.html">Drainage Planner</a></li>
+        <li><a href="all_configs.html">Saved Configurations</a></li>
+        <li><a href="catchpit.html">Catchpit Config</a></li>
+        <li><a href="orifice.html">Orifice Config</a></li>
+        <li><a href="universal_chamber.html">Chamber Config</a></li>
+        <li><a href="separator.html">Separator Config</a></li>
+        <!-- Add link to ai_analyzer.html here later if needed -->
+    </ul>
+</nav>
+
+    <div class="hub-container">
+        <h1>SuDS Enviro Internal Configuration Tools</h1>
+        <ul class="tool-links">
+            <li><a href="planner.html" class="planner-link">Drainage System Planner</a></li>
+            <li><a href="catchpit.html">Catchpit Configurator</a></li>
+            <li><a href="orifice.html">Orifice Flow Control Configurator</a></li>
+            <li><a href="universal_chamber.html">Universal Chamber Configurator</a></li>
+            <li><a href="separator.html">Hydrodynamic Separator Configurator</a></li>
+            <li><a href="all_configs.html" class="configs-link">View All Saved Product Configurations</a></li>
+        </ul>
+    </div>
+    <script src="js/main.js" defer></script> <!-- Link to common navbar JS -->
+</body>
+</html>

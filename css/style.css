@@ -1,0 +1,561 @@
+/* css/style.css */
+
+/* ==========================================================================
+   1. ROOT VARIABLES & BASIC RESET/DEFAULTS
+   ========================================================================== */
+:root {
+    --suds-blue: #1d80b9;
+    --suds-green: #54b54d;
+    --suds-red: #c34c4a;
+    --suds-text-dark: #333;
+    --suds-text-heading: var(--suds-blue);
+    --suds-border-light: #d1d5db;
+    --suds-bg-light: #f9fafb;
+    --suds-medium-grey: #e9ecef;
+    --navbar-height-desktop: 70px;
+    --navbar-height-mobile: 60px;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    margin: 0;
+    padding-top: var(--navbar-height-desktop); /* Space for fixed navbar */
+    background-color: var(--suds-bg-light);
+    color: var(--suds-text-dark);
+    line-height: 1.6;
+    font-size: 15px; /* Base font size */
+}
+
+/* ==========================================================================
+   2. NAVIGATION BAR (Desktop & Mobile Base)
+   ========================================================================== */
+.navbar {
+    background-color: #ffffff;
+    padding: 0 25px; /* Vertical padding 0, horizontal 25px */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08); /* Softer shadow */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    height: var(--navbar-height-desktop);
+}
+
+.nav-logo {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    text-decoration: none; /* Remove underline if logo is a link */
+}
+
+.nav-logo img {
+    height: 40px; /* Default logo height */
+    max-height: calc(var(--navbar-height-desktop) - 20px); /* Ensure some padding */
+    width: auto;
+    object-fit: contain; /* Ensure logo scales nicely */
+}
+
+.nav-links {
+    list-style: none;
+    display: flex; 
+    margin: 0;
+    padding: 0;
+    align-items: center; 
+    height: auto;
+}
+
+.nav-links li {
+    margin-left: 10px; /* Spacing between links */
+    display: flex; 
+    align-items: center;
+    height: 100%;
+}
+.nav-links li:first-child {
+    margin-left: 0;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: var(--suds-text-dark);
+    font-weight: 500;
+    font-size: 0.9rem; /* Relative font size */
+    padding: 0 15px; /* Vertical padding 0, horizontal for spacing */
+    border-radius: 4px; /* Slightly softer radius */
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    align-items: center;
+    height: 100%; 
+    box-sizing: border-box; 
+    white-space: nowrap; /* Prevent links from wrapping */
+}
+
+.nav-links a:hover {
+    background-color: var(--suds-bg-light); 
+    color: var(--suds-blue);
+}
+
+.nav-links a.active {
+    background-color: var(--suds-blue);
+    color: white;
+    font-weight: 600;
+    box-shadow: inset 0 -3px 0 0 var(--suds-green); 
+}
+.nav-links a.active:hover {
+    background-color: #16699b; 
+}
+
+/* Hamburger Menu Icon (Initially Hidden) */
+.menu-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 28px; /* Slightly smaller */
+    height: 22px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 1010; 
+}
+.menu-toggle .bar {
+    display: block; /* Ensure bars are block elements */
+    width: 100%;
+    height: 3px;
+    background-color: var(--suds-text-dark);
+    border-radius: 10px;
+    transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1); /* Smoother transition */
+}
+
+/* ==========================================================================
+   3. GENERAL PAGE CONTAINER & HEADINGS (For content pages like all_configs)
+   ========================================================================== */
+.container { 
+    max-width: 1000px;
+    margin: 25px auto; /* Increased top/bottom margin */
+    padding: 30px; 
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.08); /* Slightly more pronounced shadow */
+}
+
+.page-header-container { 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 35px; 
+    text-align: center;
+}
+
+.page-logo-main {
+    max-width: 140px; 
+    height: auto;
+    margin-bottom: 15px;
+}
+
+.container h1 { 
+    color: var(--suds-text-heading);
+    text-align: center;
+    margin-top: 0; /* Removed top margin as it's handled by page-header-container */
+    margin-bottom: 0; 
+    font-size: 2.2em; /* Larger H1 */
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   4. CONFIGURATION LIST STYLES (#config-list items)
+   ========================================================================== */
+#config-list {
+    list-style: none;
+    padding: 0;
+}
+#config-list > p { 
+    text-align: center; 
+    color: #6c757d; /* Using dark-grey variable */
+    margin: 25px 0;
+    font-style: italic;
+}
+
+.config-item {
+    background-color: #fff; /* Cleaner look than suds-bg-light here */
+    border: 1px solid var(--suds-border-light);
+    border-left: 6px solid var(--suds-green); /* Thicker accent border */
+    padding: 18px 20px; /* More padding */
+    margin-bottom: 18px; /* More spacing */
+    border-radius: 6px; /* Softer radius */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s ease;
+}
+.config-item:hover {
+    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+}
+
+.config-item-details {
+    flex-grow: 1;
+    margin-right: 15px; 
+    min-width: 250px; 
+}
+.config-item strong {
+    color: var(--suds-text-heading);
+    font-size: 1.15em; /* Slightly larger */
+    font-weight: 600;
+    display: block; 
+    margin-bottom: 5px; /* More space after strong */
+}
+.config-item p {
+    margin: 4px 0;
+    font-size: 0.9em;
+    color: var(--suds-text-dark);
+}
+.config-item .timestamp {
+    font-size: 0.8em;
+    color: #888; /* Lighter grey for timestamp */
+}
+.config-item-actions {
+    display: flex; 
+    align-items: center; /* Vertically align buttons */
+    flex-shrink: 0; 
+    margin-top: 5px; 
+}
+.config-item-actions button {
+    color: white;
+    border: none;
+    padding: 9px 14px; /* Adjusted padding */
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85em; /* Smaller button text */
+    font-family: 'Montserrat', sans-serif; 
+    font-weight: 600; /* Bolder button text */
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    margin-left: 8px; 
+    line-height: 1; /* Ensure text is centered */
+}
+.config-item-actions button:hover {
+    transform: translateY(-1px);
+}
+.config-item-actions button:first-child {
+    margin-left: 0; 
+}
+.config-item-actions button.view-details-btn {
+    background-color: var(--suds-blue);
+}
+.config-item-actions button.view-details-btn:hover {
+    background-color: #16699b;
+}
+.config-item-actions button.delete-btn { /* Add class for specific delete styling if needed */
+    background-color: var(--suds-red);
+}
+.config-item-actions button.delete-btn:hover {
+    background-color: #c82333; /* Darker red */
+}
+
+.config-item pre {
+    background-color: var(--suds-medium-grey); 
+    padding: 12px; /* More padding */
+    border-radius: 4px;
+    font-size: 0.85em;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 12px;
+    display: none; 
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #ddd; /* Subtle border */
+}
+
+/* ==========================================================================
+   5. GENERAL ACTION BUTTONS CONTAINER (Export, Clear All)
+   ========================================================================== */
+.action-buttons-container {
+    text-align: center;
+    margin-bottom: 25px;
+    margin-top: 10px; /* Add some top margin */
+}
+.action-buttons-container button { 
+    display: inline-block; 
+    margin: 8px; /* Increased margin */
+    padding: 12px 28px; /* Adjusted padding */
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 0.95em; /* Slightly smaller main action buttons */
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.action-buttons-container button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+#export-configs-btn { background-color: var(--suds-blue); }
+#export-configs-btn:hover { background-color: #16699b; }
+#clear-all-configs-btn { background-color: var(--suds-red); }
+#clear-all-configs-btn:hover { background-color: #c82333;}
+
+/* ==========================================================================
+   6. PROPOSAL SECTION STYLES
+   ========================================================================== */
+.proposal-section {
+    margin-top: 35px;
+    padding: 30px; 
+    border: 1px solid var(--suds-border-light);
+    border-radius: 8px;
+    background-color: #fff; /* White background for this section */
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+.proposal-section h2 {
+    color: var(--suds-text-heading);
+    margin-top: 0;
+    border-bottom: 2px solid var(--suds-blue); /* Thicker border */
+    padding-bottom: 12px;
+    font-size: 1.7em; 
+    text-align: center;
+    margin-bottom: 30px;
+    font-weight: 700;
+}
+
+.suds-form-group { /* Used for API key section */
+    margin-bottom: 20px;
+}
+.suds-form-group label, 
+.proposal-input-group label { 
+    display: block;
+    font-weight: 600;
+    color: var(--suds-text-dark); 
+    margin-bottom: 8px; 
+    font-size: 0.95em;
+}
+.proposal-input-group { /* For Customer Name, Project Name, Notes */
+    margin-bottom: 18px;
+}
+.proposal-input-group input[type="text"],
+.proposal-input-group textarea,
+#api-key-input { 
+    width: 100%;
+    padding: 12px 18px; /* More horizontal padding */
+    border: 1px solid var(--suds-border-light);
+    border-radius: 25px; /* Fully rounded */
+    font-size: 0.95em;   
+    font-family: 'Montserrat', sans-serif;
+    box-sizing: border-box;
+    background-color: #fff; 
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.proposal-input-group input[type="text"]:focus,
+.proposal-input-group textarea:focus,
+#api-key-input:focus {
+    border-color: var(--suds-blue);
+    box-shadow: 0 0 0 3px rgba(29, 128, 185, 0.2);
+    outline: none;
+}
+.proposal-input-group textarea {
+    min-height: 80px;
+    resize: vertical;
+    border-radius: 15px; /* Slightly less rounded for textareas */
+}
+
+.api-key-group {
+    display: flex;
+    align-items: center;
+}
+#save-api-key-btn {
+    padding: 12px 22px; /* Match input padding */
+    background-color: var(--suds-blue); 
+    color:white; 
+    border:none; 
+    border-radius:25px; /* Match input radius */
+    cursor:pointer;
+    font-size: 0.95em; 
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    flex-shrink: 0; 
+    margin-left: 12px; /* More space */
+}
+#save-api-key-btn:hover {
+    background-color: #16699b;
+    transform: translateY(-1px);
+}
+
+/* Proposal action buttons (Generate, Download) use .action-buttons-container styles */
+#generate-proposal-btn { background-color: var(--suds-green); }
+#generate-proposal-btn:hover { background-color: #4a9d45; }
+#download-proposal-btn { 
+    background-color: var(--suds-text-dark); 
+    margin-left: 10px; 
+}
+#download-proposal-btn:hover { background-color: #555; }
+
+#proposal-output { /* Where AI generated HTML preview appears */
+    margin-top: 25px;
+    padding: 20px 25px; 
+    background-color: #fff;
+    border: 1px solid var(--suds-border-light);
+    border-radius: 6px; /* Consistent radius */
+    min-height: 250px; 
+    font-size: 1em; /* Base font size for readability */
+    line-height: 1.65; 
+    overflow-x: auto; 
+    color: var(--suds-text-dark); /* Ensure text color is set */
+}
+#proposal-output h1, #proposal-output h2, #proposal-output h3, #proposal-output h4 {
+    color: var(--suds-text-heading); /* Use heading color */
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600; /* Bolder headings in output */
+}
+#proposal-output h1 { font-size: 1.8em; margin-bottom: 0.8em; margin-top: 0.5em; border-bottom: 2px solid var(--suds-blue); padding-bottom: 0.3em;}
+#proposal-output h2 { font-size: 1.5em; margin-top: 1.2em; margin-bottom: 0.6em; border-bottom: 1px solid var(--suds-border-light); padding-bottom: 0.2em;}
+#proposal-output h3 { font-size: 1.2em; margin-top: 1em; margin-bottom: 0.4em; color: var(--suds-text-heading); }
+#proposal-output p { margin-bottom: 1em; } /* More paragraph spacing */
+#proposal-output ul, #proposal-output ol { margin-left: 20px; margin-bottom: 1em; padding-left: 20px;} 
+#proposal-output li { margin-bottom: 0.5em; }
+#proposal-output hr { border: none; border-top: 1px solid var(--suds-border-light); margin: 2em 0; } /* More prominent HR */
+#proposal-output strong, #proposal-output b { font-weight: 700; /* Bolder strong/bold */ }
+#proposal-output em, #proposal-output i { font-style: italic; }
+#proposal-output blockquote {
+    border-left: 4px solid var(--suds-blue); /* Use theme color */
+    padding-left: 15px; 
+    margin: 1em 0; /* Spacing around blockquote */
+    color: #444; /* Darker text for blockquote */
+    font-style: italic;
+}
+#proposal-output code { 
+    background-color: var(--suds-medium-grey); 
+    padding: 0.2em 0.5em; /* More padding */
+    border-radius: 4px; 
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9em;
+    border: 1px solid #ddd; /* Subtle border for inline code */
+}
+#proposal-output pre { 
+    background-color: var(--suds-medium-grey); 
+    padding: 15px; 
+    border-radius: 4px; 
+    overflow-x: auto; 
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9em;
+    border: 1px solid #ccc; /* Border for code blocks */
+    line-height: 1.4;
+}
+#proposal-output pre code { padding: 0; background-color: transparent; border-radius: 0; border: none; }
+
+#proposal-status {
+    margin-top: 15px; 
+    font-style: italic;
+    color: var(--suds-text-dark);
+    text-align: center;
+    font-weight: 500; 
+    padding: 8px; /* Add some padding to status */
+    border-radius: 4px;
+}
+#proposal-status.success { background-color: #e8f5e9; color: var(--suds-green); border: 1px solid var(--suds-green); }
+#proposal-status.error { background-color: #ffebee; color: var(--suds-red); border: 1px solid var(--suds-red); }
+
+
+/* ==========================================================================
+   7. RESPONSIVE STYLES (Mobile Navbar and Page Adjustments)
+   ========================================================================== */
+@media (max-width: 991px) {
+    body {
+        padding-top: var(--navbar-height-mobile);
+    }
+    .navbar {
+        height: var(--navbar-height-mobile);
+        padding: 0 15px;
+    }
+    .nav-logo img {
+        height: 35px;
+    }
+    .menu-toggle {
+        display: flex;
+    }
+    .nav-links {
+        display: none; /* Initially hidden */
+        flex-direction: column;
+        width: 100%;
+        /* ENSURE THESE PROPERTIES ARE SET FOR THE DROPDOWN APPEARANCE */
+        background-color: #ffffff; /* <<< THIS IS THE KEY FOR OPAQUE BACKGROUND */
+        position: absolute;
+        top: var(--navbar-height-mobile); /* Position it right below the navbar */
+        left: 0;
+        padding: 10px 0; /* Add some vertical padding inside the dropdown */
+        box-shadow: 0 4px 5px rgba(0,0,0,0.1); /* Optional: shadow for depth */
+        border-top: 1px solid var(--suds-border-light); /* Optional: separator line */
+        z-index: 999; /* Ensure it's above other content but below the main navbar if fixed */
+    }
+    .nav-links.active {
+        display: flex; /* This class is toggled by JS to show the menu */
+    }
+    .nav-links li {
+        margin-left: 0;
+        width: 100%;
+        height: auto;
+    }
+    .nav-links a {
+        padding: 12px 20px;
+        width: 100%;
+        text-align: left;
+        border-bottom: 1px solid #f0f0f0;
+        height: auto;
+        box-sizing: border-box;
+        font-size: 1rem;
+    }
+    .nav-links li:last-child a {
+        border-bottom: none;
+    }
+    .nav-links a.active { /* Styling for the link corresponding to the current page */
+        box-shadow: inset 4px 0 0 0 var(--suds-green);
+        background-color: var(--suds-bg-light);
+        color: var(--suds-blue);
+    }
+    .nav-links a.active:hover {
+        background-color: var(--suds-medium-grey);
+    }
+
+    .menu-toggle.active .bar:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+    .menu-toggle.active .bar:nth-child(2) { opacity: 0; }
+    .menu-toggle.active .bar:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+    .container { padding: 20px 15px; } /* Adjust container padding */
+    .container h1 { font-size: 1.8em; }
+    .page-logo-main { max-width: 120px; margin-bottom: 10px; }
+    .config-item { flex-direction: column; align-items: flex-start; padding: 12px; }
+    .config-item-actions { margin-top: 12px; width: 100%; display: flex; }
+    .config-item-actions button { flex-grow: 1; margin-left: 0; margin-right: 8px; }
+    .config-item-actions button:last-child { margin-right: 0; }
+    .action-buttons-container button { width: calc(100% - 20px); margin: 10px auto; padding: 12px 15px; font-size: 0.95em; }
+    .api-key-group { flex-direction: column; align-items: stretch; }
+    #api-key-input { margin-right: 0; margin-bottom: 10px; font-size: 1em; }
+    #save-api-key-btn { width: 100%; font-size: 1em; padding: 12px 15px; }
+    .proposal-section h2 { font-size: 1.5em; }
+    .proposal-section .action-buttons-container button#generate-proposal-btn,
+    .proposal-section .action-buttons-container button#download-proposal-btn {
+        width: calc(100% - 20px); 
+    }
+    .proposal-section .action-buttons-container button#download-proposal-btn { margin-top: 10px; }
+    .suds-form-group label, .proposal-input-group label { font-size: 0.9em; }
+    #proposal-output { padding: 15px; }
+}
+
+@media (max-width: 420px) { /* Extra small screens */
+    .nav-logo img { height: 32px; }
+    .navbar { padding: 0 12px; }
+    .nav-links a { font-size: 0.9em; padding: 10px 15px; }
+    .container h1 { font-size: 1.6em; }
+    .action-buttons-container button { font-size: 0.9em; padding: 10px 12px; }
+    .page-logo-main { max-width: 100px; }
+    .proposal-section h2 { font-size: 1.3em; }
+}

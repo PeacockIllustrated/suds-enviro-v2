@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuDS Enviro - Saved Configurations & Proposal</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="navbar">
+    <a href="index.html" class="nav-logo">
+        <img src="assets/images/logo_horizontal.png" alt="SuDS Enviro Logo">
+    </a>
+    <button class="menu-toggle" id="mobileMenuToggle" aria-label="Toggle Menu" aria-expanded="false">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+        <li><a href="index.html">Tools Hub</a></li>
+        <li><a href="planner.html">Drainage Planner</a></li>
+        <li><a href="all_configs.html" class="active">Saved Configurations</a></li>
+        <li><a href="catchpit.html">Catchpit Config</a></li>
+        <li><a href="orifice.html">Orifice Config</a></li>
+        <li><a href="universal_chamber.html">Chamber Config</a></li>
+        <li><a href="separator.html">Separator Config</a></li>
+    </ul>
+</nav>
+
+    <div class="container">
+        <div class="page-header-container">
+            <img src="assets/images/logo_main_final.svg" alt="SuDS Enviro Main Logo" class="page-logo-main">
+            <h1>Saved Product Configurations</h1>
+        </div>
+
+        <div class="project-selector-container suds-form-group" style="margin-bottom: 20px; text-align: center;">
+            <label for="project-select" style="display:block; font-weight:700; margin-bottom:8px; font-size: 1.1em; color: var(--suds-blue);">View Configurations for Project:</label>
+            <select id="project-select" class="suds-select" style="width:100%; max-width:450px; margin: 0 auto; display:block; padding: 10px 15px; font-size: 1em;">
+                <option value="">-- Select a Project --</option>
+                <!-- Options will be populated by JS -->
+            </select>
+        </div>
+
+        <div class="action-buttons-container">
+            <button id="export-project-configs-btn" title="Export configurations for the selected project">Export Selected Project (JSON)</button>
+            <button id="clear-project-configs-btn" title="Clear all configurations for the selected project">Clear Selected Project Configs</button>
+        </div>
+        <ul id="config-list">
+            <p>Loading configurations or no configurations saved yet...</p>
+        </ul>
+
+        <hr style="margin: 35px 0;">
+
+        <div class="proposal-section">
+            <h2>Generate Project Proposal</h2>
+            <p style="text-align:center; font-style:italic; margin-bottom:20px;">Ensure the correct project is selected above. Customer and Project fields below will pre-fill but can be overridden.</p>
+
+            <div class="proposal-input-group">
+                <label for="customer-name">Customer Name / Company (for Proposal):</label>
+                <input type="text" id="customer-name" placeholder="e.g., John Doe Construction Ltd.">
+            </div>
+
+            <div class="proposal-input-group">
+                <label for="project-name">Project Name / Location (for Proposal):</label>
+                <input type="text" id="project-name" placeholder="e.g., New Retail Park, Anytown">
+            </div>
+
+            <div class="proposal-input-group">
+                <label for="project-notes">Specific Project Notes (Optional - for AI context):</label>
+                <textarea id="project-notes" placeholder="e.g., High clay content on site, strict discharge limits..."></textarea>
+            </div>
+
+            <hr style="margin: 25px 0;">
+
+            <div class="suds-form-group">
+                <label for="api-key-input">AI API Key (e.g., OpenAI):</label>
+                <div class="api-key-group">
+                    <input type="password" id="api-key-input" placeholder="Enter your AI API Key here">
+                    <button id="save-api-key-btn">Save Key</button>
+                </div>
+            </div>
+
+            <div class="action-buttons-container">
+                <button id="generate-proposal-btn">Generate Proposal (from Selected Project)</button>
+                <!-- Ensure this button is present and correctly ID'd -->
+                <button id="copy-markdown-btn" style="display: none; background-color: var(--suds-text-dark); margin-left: 10px;">Copy Markdown</button>
+                <button id="download-proposal-btn" style="display: none; margin-left: 10px;">Download Proposal (.html)</button>
+            </div>
+            <div id="proposal-status"></div>
+            <div id="proposal-output">
+                Proposal will appear here once generated...
+            </div>
+        </div>
+        <hr style="margin: 35px 0;">
+         <div class="action-buttons-container" style="margin-top: 30px; border-top: 1px dashed var(--suds-border-light); padding-top: 20px;">
+            <button id="clear-all-project-data-btn" style="background-color: var(--suds-red);" title="DANGER: This will delete ALL configurations for ALL projects!">Clear ALL Project Data (Irreversible)</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="js/all_configs.js"></script> <!-- Should contain the JS provided in the previous step -->
+    <script src="js/main.js" defer></script>
+</body>
+</html>
