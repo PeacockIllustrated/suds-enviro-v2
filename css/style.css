@@ -239,6 +239,9 @@ body {
     transition: background-color 0.2s ease, transform 0.1s ease;
     margin-left: 8px; 
     line-height: 1; /* Ensure text is centered */
+    display: block; /* Ensure buttons are block-level for centering */
+    margin-left: auto;
+    margin-right: auto;
 }
 .config-item-actions button:hover {
     transform: translateY(-1px);
@@ -282,7 +285,9 @@ body {
     margin-top: 10px; /* Add some top margin */
 }
 .action-buttons-container button { 
-    display: inline-block; 
+    display: block; /* Ensure buttons are block-level for centering */
+    margin-left: auto;
+    margin-right: auto;
     margin: 8px; /* Increased margin */
     padding: 12px 28px; /* Adjusted padding */
     color: white;
@@ -364,7 +369,7 @@ body {
 .proposal-input-group textarea {
     min-height: 80px;
     resize: vertical;
-    border-radius: 15px; /* Slightly less rounded for textareas */
+    border-radius: 25px; /* Match input fields for consistency */
 }
 
 .api-key-group {
@@ -529,7 +534,7 @@ body {
     .menu-toggle.active .bar:nth-child(2) { opacity: 0; }
     .menu-toggle.active .bar:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
 
-    .container { padding: 20px 15px; } /* Adjust container padding */
+    .container { padding: 20px 15px; min-width: 0; padding-left: 10px; padding-right: 10px; } /* Add min side padding for comfort */
     .container h1 { font-size: 1.8em; }
     .page-logo-main { max-width: 120px; margin-bottom: 10px; }
     .config-item { flex-direction: column; align-items: flex-start; padding: 12px; }
@@ -550,7 +555,8 @@ body {
     #proposal-output { padding: 15px; }
 }
 
-@media (max-width: 420px) { /* Extra small screens */
+/* Extra small screens */
+@media (max-width: 420px) { 
     .nav-logo img { height: 32px; }
     .navbar { padding: 0 12px; }
     .nav-links a { font-size: 0.9em; padding: 10px 15px; }
@@ -558,4 +564,9 @@ body {
     .action-buttons-container button { font-size: 0.9em; padding: 10px 12px; }
     .page-logo-main { max-width: 100px; }
     .proposal-section h2 { font-size: 1.3em; }
+}
+
+/* Add vertical spacing between stacked containers */
+.container + .container, .container + .proposal-section, .proposal-section + .container, .proposal-section + .proposal-section {
+    margin-top: 30px;
 }
