@@ -61,6 +61,16 @@
          /* NEW: Styling for Analyzer link */
          .tool-links li a.analyzer-link { background-color: #727272; } /* Darker grey or another distinct color */
          .tool-links li a.analyzer-link:hover { background-color: #5d5d5d; }
+
+        /* Style for dynamically added logout button if needed */
+        .nav-link-logout {
+            background-color: var(--suds-red) !important; /* Important to override other active states */
+            color: white !important;
+            font-weight: 600 !important;
+        }
+        .nav-link-logout:hover {
+            background-color: #a12d2b !important;
+        }
     </style>
 </head>
 <body class="page-hub"> <!-- Added class for specific body styling -->
@@ -83,6 +93,7 @@
         <li><a href="universal_chamber.html">Chamber Config</a></li>
         <li><a href="separator.html">Separator Config</a></li>
         <li><a href="ai_analyzer.html">AI Schedule Analyzer</a></li> <!-- NEW LINK -->
+        <!-- The logout button will be dynamically added here by main.js -->
     </ul>
 </nav>
 
@@ -103,6 +114,6 @@
     </div>
     <!-- Firebase Initialization Script (MUST be type="module") -->
     <script type="module" src="js/firebase-init.js"></script>
-    <script type="module" src="js/main.js"></script> <!-- Changed to type="module" -->
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
