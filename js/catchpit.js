@@ -267,27 +267,30 @@ document.addEventListener('DOMContentLoaded', function() {
         const prefillId = urlParams.get('prefillId');
 
         try {
-            // Reference to the user's projects collection
-            const userProjectsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
-            // Reference to the specific project's configurations subcollection
-            const projectConfigsCollectionRef = collection(userProjectsCollectionRef, projectName, CONFIGURATIONS_SUBCOLLECTION);
+            // Correct path for saving: users/[UID]/projects/[ProjectName]/configurations/[configId]
+            const configsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
 
             let configDocRef;
             if (prefillId) {
                 // If prefillId is present, update the existing document
-                configDocRef = doc(projectConfigsCollectionRef, prefillId);
+                configDocRef = doc(configsCollectionRef, prefillId);
                 payload.firestoreId = prefillId; // Ensure payload includes the Firestore ID
                 payload.savedId = prefillId; // Keep savedId consistent with firestoreId
                 payload.source = urlParams.get('source') || payload.source; // Preserve source tag if it was provided via URL
                 payload.configured = true; // Mark as configured
             } else {
                 // For new configurations, let Firestore generate a unique ID
-                configDocRef = doc(projectConfigsCollectionRef);
+                configDocRef = doc(configsCollectionRef);
                 payload.firestoreId = configDocRef.id; // Store Firestore document ID in payload
                 payload.savedId = configDocRef.id; // Also use as savedId for consistency
             }
 
             payload.savedTimestamp = new Date().toISOString(); // Always update timestamp on save
+
+            // Diagnostic log:
+            console.log("Attempting to save Catchpit configuration to:", configDocRef.path);
+            console.log("Payload:", JSON.stringify(payload, null, 2));
+
 
             await setDoc(configDocRef, payload); // Save/update the document in Firestore
 
