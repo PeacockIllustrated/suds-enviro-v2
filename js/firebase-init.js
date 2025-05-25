@@ -8,7 +8,7 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/9.23.0/firebase
 
 // Your web app's Firebase configuration (provided by you)
 const firebaseConfig = {
-  apiKey: "AIzaSyC5amcokd38NbNbZvChmTL1wR7yX1E8TD43E", // Corrected key (assuming typo, used first value)
+  apiKey: "AIzaSyBpb9f7D1EDocnAM1gFlB_vTOdBrpfjxj4", // Corrected key (assuming typo, used first value)
   authDomain: "suds-enviro-d83d4.firebaseapp.com",
   projectId: "suds-enviro-d83d4",
   storageBucket: "suds-enviro-d83d4.firebasestorage.app",
