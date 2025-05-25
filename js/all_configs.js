@@ -86,19 +86,30 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        console.log("Loading configurations for user:", currentUser.uid);
-        currentConfigsByProject = {}; // Reset local data store
+    
+        
+       // Inside loadUserConfigurationsFromFirestore() in all_configs.js
+console.log("Starting load for user UID:", currentUser.uid);
+const projectsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
+console.log("Querying projects at path:", projectsRef.path); // Log the full collection path
 
-        try {
-            const projectsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
-            const projectsSnapshot = await getDocs(projectsRef);
+const projectsSnapshot = await getDocs(projectsRef);
 
-            if (projectsSnapshot.empty) {
-                console.log("No projects found for this user.");
-                configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">No configurations saved yet. Start by configuring a product!</p>';
-                populateProjectSelector();
-                return;
-            }
+if (projectsSnapshot.empty) {
+    console.log("No projects found for this user after query."); // This is the log you're seeing
+    // ...
+} else {
+    console.log("Found projects. Number of project documents:", projectsSnapshot.size);
+    for (const projectDoc of projectsSnapshot.docs) {
+        const projectName = projectDoc.id;
+        console.log("Processing project:", projectName);
+        const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
+        console.log("Querying configurations for project:", configsRef.path); // Log path for configs
+        const configsSnapshot = await getDocs(configsRef);
+        console.log("Found configurations for project", projectName, ":", configsSnapshot.size);
+        // ...
+    }
+}
 
             // Iterate through each project document
             for (const projectDoc of projectsSnapshot.docs) {
@@ -124,6 +135,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    
+    
     // Populate the project dropdown based on fetched data
     function populateProjectSelector() {
         projectSelectDropdown.innerHTML = '<option value="">-- Select a Project --</option>';
