@@ -24,6 +24,8 @@
         <li><a href="orifice.html">Orifice Config</a></li>
         <li><a href="universal_chamber.html">Chamber Config</a></li>
         <li><a href="separator.html">Separator Config</a></li>
+        <li><a href="ai_analyzer.html">AI Schedule Analyzer</a></li> <!-- NEW LINK -->
+        <!-- The logout button will be dynamically added here by main.js -->
     </ul>
 </nav>
 
@@ -95,7 +97,9 @@
         </div>
     </div>
 
-    <!-- Catchpit Form Template -->
+    <!-- Form Templates (Catchpit, Orifice, Separator, Universal Chamber) -->
+    <!-- These templates will be dynamically loaded into modals via all_configs.js -->
+    <!-- ... (rest of the form templates, no changes needed for this phase) ... -->
     <div id="catchpit-form-template" style="display:none;">
         <form id="modalCatchpitForm" class="suds-configurator-form suds-modal-form">
             <!-- NEW: Customer/Project Name Input - This will be dynamically removed by JS in modal context -->
@@ -310,7 +314,6 @@
                     </div>
                 </div>
             </details>
-
             <button type="submit" class="suds-submit-btn">Submit Orifice Configuration</button>
             <div id="suds_submit_status"></div>
         </form>
@@ -512,7 +515,8 @@
         </form>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="js/all_configs.js"></script> <!-- Should contain the JS provided in the previous step -->
-    <script src="js/main.js" defer></script>
+    <script type="module" src="js/all_configs.js"></script> <!-- Changed to type="module" -->
+    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/firebase-init.js"></script>
 </body>
 </html>
