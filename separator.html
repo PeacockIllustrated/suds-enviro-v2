@@ -109,6 +109,8 @@
         <li><a href="orifice.html">Orifice Config</a></li>
         <li><a href="universal_chamber.html">Chamber Config</a></li>
         <li><a href="separator.html" class="active">Separator Config</a></li>
+        <li><a href="ai_analyzer.html">AI Schedule Analyzer</a></li> <!-- NEW LINK -->
+        <!-- The logout button will be dynamically added here by main.js -->
     </ul>
 </nav>
 
@@ -128,103 +130,104 @@
             <div class="suds-form-group">
                 <label class="suds-label">Adoptable Status:</label>
                 <div class="suds-radio-group" id="adoptable_status_group">
-                     <div>
-                        <input type="radio" id="adoptable_yes" name="adoptable_status" value="adoptable" required>
-                        <label for="adoptable_yes">Adoptable</label>
-                     </div>
-                     <div>
-                        <input type="radio" id="adoptable_no" name="adoptable_status" value="non_adoptable" required>
-                        <label for="adoptable_no">Non-Adoptable</label>
-                     </div>
-                </div>
-             </div>
-            <div class="suds-form-group">
-                <label class="suds-label" for="hds_depth">Chamber depth (mm):</label>
-                <select class="suds-select" id="hds_depth" name="hds_depth" required disabled>
-                    <option value="">-- Select Adoptable Status First --</option>
-                </select>
-            </div>
-            <div class="suds-form-group">
-                <label class="suds-label" for="hds_flow_rate">Design Flow Rate (L/s):</label>
-                <input class="suds-input" type="number" id="hds_flow_rate" name="hds_flow_rate" min="1" step="1" placeholder="e.g., 25" required>
-            </div>
-            <div class="suds-form-group">
-                 <label class="suds-label" for="hds_pipework_diameter">Pipework Diameter (mm):</label>
-                 <select class="suds-select" id="hds_pipework_diameter" name="hds_pipework_diameter" required>
-                     <option value="">-- Select Size --</option>
-                     <option value="110mm">110mm</option>
-                     <option value="160mm">160mm</option>
-                     <option value="225mm">225mm</option>
-                     <option value="300mm">300mm</option>
-                     <option value="450mm">450mm</option>
-                     <option value="600mm">600mm</option>
-                 </select>
-             </div>
-             <div class="suds-form-group">
-                <label class="suds-label" for="hds_space">Space Available / Model Size:</label>
-                <select class="suds-select" id="hds_space" name="hds_space" required>
-                    <option value="">-- Select Size Class --</option>
-                    <option value="Compact">Compact</option>
-                    <option value="Standard">Standard</option>
-                    <option value="Extended">Extended</option>
-                     <option value="Bespoke">Bespoke (Requires Consultation)</option>
-                </select>
-            </div>
-
-            <h3>Target Contaminants</h3>
-             <div class="suds-form-group">
-                 <label class="suds-label">Select pollutants to target (at least one):</label>
-                 <div class="suds-checkbox-group" id="contaminants_group">
-                      <div>
-                         <input type="checkbox" id="cont_hydrocarbons" name="target_contaminants[]" value="Hydrocarbons">
-                         <label for="cont_hydrocarbons">Hydrocarbons</label>
-                      </div>
-                      <div>
-                          <input type="checkbox" id="cont_floatables" name="target_contaminants[]" value="Floatables">
-                          <label for="cont_floatables">Floatables</label>
-                      </div>
-                      <div>
-                          <input type="checkbox" id="cont_silt" name="target_contaminants[]" value="Silt">
-                          <label for="cont_silt">Silt</label>
-                      </div>
+                         <div>
+                            <input type="radio" id="adoptable_yes" name="adoptable_status" value="adoptable" required>
+                            <label for="adoptable_yes">Adoptable</label>
+                         </div>
+                         <div>
+                            <input type="radio" id="adoptable_no" name="adoptable_status" value="non_adoptable" required>
+                            <label for="adoptable_no">Non-Adoptable</label>
+                         </div>
+                    </div>
                  </div>
-                 <div id="contaminants_error" class="suds-error-message"></div>
-             </div>
-        </div>
+                <div class="suds-form-group">
+                    <label class="suds-label" for="hds_depth">Chamber depth (mm):</label>
+                    <select class="suds-select" id="hds_depth" name="hds_depth" required disabled>
+                        <option value="">-- Select Adoptable Status First --</option>
+                    </select>
+                </div>
+                <div class="suds-form-group">
+                    <label class="suds-label" for="hds_flow_rate">Design Flow Rate (L/s):</label>
+                    <input class="suds-input" type="number" id="hds_flow_rate" name="hds_flow_rate" min="1" step="1" placeholder="e.g., 25" required>
+                </div>
+                <div class="suds-form-group">
+                     <label class="suds-label" for="hds_pipework_diameter">Pipework Diameter (mm):</label>
+                     <select class="suds-select" id="hds_pipework_diameter" name="hds_pipework_diameter" required>
+                         <option value="">-- Select Size --</option>
+                         <option value="110mm">110mm</option>
+                         <option value="160mm">160mm</option>
+                         <option value="225mm">225mm</option>
+                         <option value="300mm">300mm</option>
+                         <option value="450mm">450mm</option>
+                         <option value="600mm">600mm</option>
+                     </select>
+                 </div>
+                 <div class="suds-form-group">
+                    <label class="suds-label" for="hds_space">Space Available / Model Size:</label>
+                    <select class="suds-select" id="hds_space" name="hds_space" required>
+                        <option value="">-- Select Size Class --</option>
+                        <option value="Compact">Compact</option>
+                        <option value="Standard">Standard</option>
+                        <option value="Extended">Extended</option>
+                         <option value="Bespoke">Bespoke (Requires Consultation)</option>
+                    </select>
+                </div>
 
-        <div id="suds_product_code_display_container">
-            <span id="suds_product_code_display_label">Generated Product Code:</span>
-            <span id="suds_product_code_display">Please make selections...</span>
-        </div>
+                <h3>Target Contaminants</h3>
+                 <div class="suds-form-group">
+                     <label class="suds-label">Select pollutants to target (at least one):</label>
+                     <div class="suds-checkbox-group" id="contaminants_group">
+                          <div>
+                             <input type="checkbox" id="cont_hydrocarbons" name="target_contaminants[]" value="Hydrocarbons">
+                             <label for="cont_hydrocarbons">Hydrocarbons</label>
+                          </div>
+                          <div>
+                              <input type="checkbox" id="cont_floatables" name="target_contaminants[]" value="Floatables">
+                              <label for="cont_floatables">Floatables</label>
+                          </div>
+                          <div>
+                              <input type="checkbox" id="cont_silt" name="target_contaminants[]" value="Silt">
+                              <label for="cont_silt">Silt</label>
+                          </div>
+                     </div>
+                     <div id="contaminants_error" class="suds-error-message"></div>
+                 </div>
+            </div>
 
-        <details id="shopping_list_details">
-            <summary id="shopping_list_summary">Estimated Quote / Shopping List</summary>
-            <div id="shopping_list_container">
-                <ul id="shopping_list_items">
-                    <li>Select options to see quote...</li>
-                </ul>
-                <div class="quote-calculation-area">
-                    <div class="suds-form-group markup-group">
-                        <label class="suds-label" for="profit_markup_percent">Profit Markup (%):</label>
-                        <input type="number" id="profit_markup_percent" name="profit_markup_percent" class="suds-input" min="0" step="0.1" value="0" placeholder="e.g., 15.5">
-                    </div>
-                    <div id="shopping_list_total">
-                        <span id="cost_price_label">Cost Price:</span>
-                        <span id="cost_price_value">£0.00</span>
-                    </div>
-                    <div id="shopping_list_sell_price">
-                        <span id="sell_price_label">Sell Price (inc. Markup):</span>
-                        <span id="sell_price_value">£0.00</span>
+            <div id="suds_product_code_display_container">
+                <span id="suds_product_code_display_label">Generated Product Code:</span>
+                <span id="suds_product_code_display">Please make selections...</span>
+            </div>
+
+            <details id="shopping_list_details">
+                <summary id="shopping_list_summary">Estimated Quote / Shopping List</summary>
+                <div id="shopping_list_container">
+                    <ul id="shopping_list_items">
+                        <li>Select options to see quote...</li>
+                    </ul>
+                    <div class="quote-calculation-area">
+                        <div class="suds-form-group markup-group">
+                            <label class="suds-label" for="profit_markup_percent">Profit Markup (%):</label>
+                            <input type="number" id="profit_markup_percent" name="profit_markup_percent" class="suds-input" min="0" step="0.1" value="0" placeholder="e.g., 15.5">
+                        </div>
+                        <div id="shopping_list_total">
+                            <span id="cost_price_label">Cost Price:</span>
+                            <span id="cost_price_value">£0.00</span>
+                        </div>
+                        <div id="shopping_list_sell_price">
+                            <span id="sell_price_label">Sell Price (inc. Markup):</span>
+                            <span id="sell_price_value">£0.00</span>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </details>
+            </details>
 
-        <button type="submit" class="suds-submit-btn">Submit Separator Configuration</button>
-        <div id="suds_submit_status"></div>
-    </form>
+            <button type="submit" class="suds-submit-btn">Submit Separator Configuration</button>
+            <div id="suds_submit_status"></div>
+        </form>
 
-    <script src="js/separator.js" defer></script>
-    <script src="js/main.js" defer></script>
+    <script type="module" src="js/firebase-init.js"></script>
+    <script type="module" src="js/separator.js"></script> <!-- Changed to type="module" -->
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
