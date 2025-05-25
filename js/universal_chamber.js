@@ -1,6 +1,9 @@
 // js/universal_chamber.js
+import { auth, db } from './firebase-init.js';
+import { collection, doc, setDoc } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+
 document.addEventListener('DOMContentLoaded', function() {
-    const pricingRules = { /* ... (your existing pricingRules) ... */
+    const pricingRules = {
         base: 50.00, system_type: {'SIC_FIC': 0, 'SERSIC_SERFIC': 150.00}, water_application: {'Surface': 0, 'Foul': 25.00},
         adoptable_status: {'adoptable': 50.00, 'non_adoptable': 0}, depth_base: 75.00, depth_per_150mm_step: 12.00,
         diameter: {'315mm': 0, '450mm': 40.00, '600mm': 90.00, '1050mm': 250.00},
@@ -11,8 +14,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const form = document.getElementById('sudsUniversalChamberForm');
     const submitStatus = document.getElementById('suds_submit_status');
-    const customerProjectNameInput = document.getElementById('customer_project_name'); // New input
-    // ... (all other existing DOM references for universal_chamber.js)
+    const customerProjectNameInput = document.getElementById('customer_project_name');
+
     const MAX_INLETS_SIC = 5; const MAX_INLETS_SERSIC = 3;
     let currentMaxInlets = MAX_INLETS_SIC; let activeInletPositions = [];
     const diagramInletElements = Array.from(document.querySelectorAll('.ic-chamber-diagram .ic-inlet'));
@@ -32,27 +35,57 @@ document.addEventListener('DOMContentLoaded', function() {
     const imageUrlSicFic = 'https://cdn.prod.website-files.com/6662e401ea62d861a416088f/681cab9600a1d9280a8be059_Untitled-1.png';
     const imageUrlSersicSerfic = 'https://cdn.prod.website-files.com/6662e401ea62d861a416088f/681cb9353f66a1ba5d64391c_Untitled-2.png';
 
-    const projectDataStorageKey = 'sudsUserProjectsData'; // New localStorage key
+    const USERS_COLLECTION = 'users';
+    const PROJECTS_SUBCOLLECTION = 'projects';
+    const CONFIGURATIONS_SUBCOLLECTION = 'configurations';
     const DEFAULT_PROJECT_NAME = "_DEFAULT_PROJECT_";
 
-    // --- Helper Functions --- (Keep all your existing helper functions like getProductName, formatInletPositionsForCode, formatCurrency, populateDepthOptions, etc.)
-    // Make sure they call updateQuoteAndCode where appropriate.
-    function getProductName() { /* ... no change ... */
+    let currentUser = null; // To store the authenticated user
+
+    // --- Firebase Auth State Listener ---
+    auth.onAuthStateChanged(user => {
+        currentUser = user;
+        if (currentUser) {
+            console.log("Universal Chamber Configurator: User is logged in.", currentUser.uid);
+            form.querySelectorAll('input, select, button').forEach(el => el.disabled = false);
+            submitStatus.textContent = 'Ready to save configuration.';
+            submitStatus.className = '';
+        } else {
+            console.log("Universal Chamber Configurator: User is NOT logged in. Disabling form.");
+            form.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
+            submitStatus.textContent = 'Please log in to use the configurator.';
+            submitStatus.className = 'suds_status_error';
+            form.reset();
+            populateDepthOptions();
+            resetInlets(); // Reset inlet selection visually
+        }
+    });
+
+    function resetInlets() {
+        activeInletPositions = [];
+        activeInletConfigsContainer.innerHTML = '';
+        diagramInletElements.forEach(el => el.classList.remove('selected'));
+        if(inletSelectorErrorDiv) inletSelectorErrorDiv.textContent = '';
+        if(document.querySelector('.ic-chamber-diagram')) document.querySelector('.ic-chamber-diagram').style.borderColor = 'transparent';
+        updateChamberSystemView(chamberSystemTypeSelect.value || 'SIC_FIC'); // Reset diagram based on current type or default
+    }
+
+    function getProductName() {
         const systemType = chamberSystemTypeSelect.value;
         const waterApp = waterApplicationTypeSelect.value;
         if (systemType === 'SERSIC_SERFIC') return waterApp === 'Foul' ? 'SERFIC' : 'SERSIC';
         else if (systemType === 'SIC_FIC') return waterApp === 'Foul' ? 'FIC' : 'SIC';
         return 'N/A';
     }
-    function formatInletPositionsForCode() { /* ... no change ... */
+    function formatInletPositionsForCode() {
         return activeInletPositions
             .map(p => parseInt(p.split(':')[0]))
             .sort((a, b) => a - b)
             .map(h => String(h).padStart(2, '0'))
             .join('');
     }
-    function formatCurrency(value) { /* ... no change ... */ return `£${value.toFixed(2)}`; }
-    function populateDepthOptions() { /* ... no change, ensure it calls updateQuoteAndCode ... */
+    function formatCurrency(value) { return `£${value.toFixed(2)}`; }
+    function populateDepthOptions() {
         const selectedAdoptable = document.querySelector('input[name="adoptable_status"]:checked');
         const adoptableValue = selectedAdoptable?.value;
         const currentDepthValue = chamberDepthSelect.value;
@@ -69,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentDepthValue && chamberDepthSelect.querySelector(`option[value="${currentDepthValue}"]`)) { chamberDepthSelect.value = currentDepthValue; } else { chamberDepthSelect.value = ""; }
         updateQuoteAndCode();
     }
-    function calculateQuote() { /* ... no change from your existing function ... */
+    function calculateQuote() {
         let totalCost = 0; const items = []; const formData = new FormData(form);
         totalCost += pricingRules.base; items.push({ description: "Base Chamber", cost: pricingRules.base });
         const systemType = formData.get('chamber_system_type'); if (systemType && pricingRules.system_type[systemType]) { const c = pricingRules.system_type[systemType]; if (c > 0) items.push({ description: `System: ${systemType.replace('_', ' / ')}`, cost: c }); totalCost += c; }
@@ -103,12 +136,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         return { total: totalCost, items: items };
     }
-    function updateQuoteDisplay() { /* ... no change ... */
+    function updateQuoteDisplay() {
         const quote = calculateQuote(); const costPrice = quote.total; const markupPercent = parseFloat(profitMarkupInput.value) || 0; const sellPrice = costPrice * (1 + markupPercent / 100);
         shoppingListItemsUl.innerHTML = ''; if (quote.items.length > 0) { quote.items.forEach(item => { const li = document.createElement('li'); li.innerHTML = `<span class="item-description">${item.description}</span><span class="item-cost">${formatCurrency(item.cost)}</span>`; shoppingListItemsUl.appendChild(li); }); } else { shoppingListItemsUl.innerHTML = '<li>Select options to see quote...</li>'; }
         costPriceValueSpan.textContent = formatCurrency(costPrice); sellPriceValueSpan.textContent = formatCurrency(sellPrice);
     }
-    function updateProductCodeDisplay() { /* ... no change ... */
+    function updateProductCodeDisplay() {
         const productName = getProductName();
         const adoptableSelectedValue = document.querySelector('input[name="adoptable_status"]:checked')?.value;
         const depthValue = chamberDepthSelect.value;
@@ -121,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const diameterCode = diameterValue.replace('mm', '');
         productCodeDisplay.textContent = `${productName}-${depthValue}-${diameterCode}-${inletsCode || '00'}-${adoptableCode}`;
     }
-    function updateChamberSystemView(systemType) { /* ... no change ... */
+    function updateChamberSystemView(systemType) {
         const inletsToHideForSersic = ['5:00', '7:00'];
         if (chamberDiagram) chamberDiagram.style.backgroundImage = `url('${systemType === 'SERSIC_SERFIC' ? imageUrlSersicSerfic : imageUrlSicFic}')`;
         currentMaxInlets = systemType === 'SERSIC_SERFIC' ? MAX_INLETS_SERSIC : MAX_INLETS_SIC;
@@ -140,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
         validateInletSelection(true);
         updateQuoteAndCode();
     }
-    function createInletConfigBlock(position) { /* ... no change ... */
+    function createInletConfigBlock(position) {
         const safePositionId = position.replace(":", "");
         const block = document.createElement('div');
         block.className = 'inlet-config-block';
@@ -153,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
         block.querySelectorAll('select, input').forEach(el => { el.addEventListener('change', updateQuoteAndCode); if (el.type === 'text' || el.type === 'number') { el.addEventListener('keyup', updateQuoteAndCode); el.addEventListener('input', updateQuoteAndCode); } });
         block.querySelector('.apply-all-btn').addEventListener('click', handleApplyToAllClick);
     }
-    function validateInletSelection(isSilent = false) { /* ... no change ... */
+    function validateInletSelection(isSilent = false) {
         const diagramBorderElement = document.querySelector('.ic-chamber-diagram');
         if (activeInletPositions.length === 0) {
             if (!isSilent && inletSelectorErrorDiv) {
@@ -166,12 +199,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (diagramBorderElement) diagramBorderElement.style.borderColor = 'transparent';
         return true;
     }
-    function handleRemoveInletClick(event) { /* ... no change ... */
+    function handleRemoveInletClick(event) {
         const position = event.target.dataset.position;
         const diagramEl = document.querySelector(`.ic-inlet[data-position="${position}"]`);
         if (diagramEl) diagramEl.click();
     }
-    function handleInletMaterialChange(event) { /* ... no change ... */
+    function handleInletMaterialChange(event) {
         const position = event.target.dataset.position;
         const safePosId = position.replace(':', '');
         const otherContainer = document.getElementById(`inlet_pipe_material_other_container_${safePosId}`);
@@ -183,11 +216,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         updateQuoteAndCode();
     }
-    function updateQuoteAndCode() { /* ... no change ... */
+    function updateQuoteAndCode() {
         updateProductCodeDisplay();
         updateQuoteDisplay();
     }
-    function handleApplyToAllClick(event) { /* ... no change ... */
+    function handleApplyToAllClick(event) {
         const sourcePosition = event.target.dataset.position;
         const sourceSafePosId = sourcePosition.replace(":", "");
         const sourceSizeSelect = document.getElementById(`inlet_pipe_size_${sourceSafePosId}`);
@@ -228,25 +261,24 @@ document.addEventListener('DOMContentLoaded', function() {
             updateQuoteAndCode();
         }
     }
-    // --- End Helper Functions ---
 
-    const elementsTriggeringUpdates = [ /* ... (no change) ... */
+    const elementsTriggeringUpdates = [
         chamberSystemTypeSelect, waterApplicationTypeSelect, chamberDepthSelect,
         chamberDiameterSelect, profitMarkupInput
     ];
-    elementsTriggeringUpdates.forEach(el => { /* ... (no change) ... */
+    elementsTriggeringUpdates.forEach(el => {
         if(el) {
             el.addEventListener('change', updateQuoteAndCode);
             if (el.type === 'number' || el.type === 'text') { el.addEventListener('keyup', updateQuoteAndCode); el.addEventListener('input', updateQuoteAndCode); }
         }
     });
-    if (adoptableStatusGroup) { /* ... (no change) ... */
+    if (adoptableStatusGroup) {
         Array.from(adoptableStatusGroup.querySelectorAll('input[type="radio"]')).forEach(radio => {
             radio.addEventListener('change', () => { populateDepthOptions(); });
         });
     }
     if (chamberSystemTypeSelect) chamberSystemTypeSelect.addEventListener('change', function() { updateChamberSystemView(this.value); });
-    diagramInletElements.forEach(inletEl => { /* ... (no change) ... */
+    diagramInletElements.forEach(inletEl => {
         inletEl.addEventListener('click', function() {
             if (this.classList.contains('hidden-inlet')) return;
             const position = this.dataset.position;
@@ -270,12 +302,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    populateDepthOptions(); // Initial call
-    if (chamberSystemTypeSelect) updateChamberSystemView(chamberSystemTypeSelect.value); else updateChamberSystemView('SIC_FIC');
+    populateDepthOptions();
+    if (chamberSystemTypeSelect) updateChamberSystemView(chamberSystemTypeSelect.value || 'SIC_FIC'); else updateChamberSystemView('SIC_FIC'); // Default to SIC/FIC if no value set initially
 
-    form.addEventListener('submit', function(event) {
+    form.addEventListener('submit', async function(event) {
         event.preventDefault();
-        // ... (validation logic remains the same) ...
+
+        if (!currentUser) {
+            submitStatus.textContent = 'Error: You must be logged in to save configurations.';
+            submitStatus.className = 'suds_status_error';
+            return;
+        }
+
         let isValid = true;
         form.querySelectorAll('.suds-input, .suds-select').forEach(el => el.style.borderColor = '');
         if(adoptableStatusGroup) adoptableStatusGroup.style.outline = 'none';
@@ -288,8 +326,16 @@ document.addEventListener('DOMContentLoaded', function() {
         activeInletPositions.forEach(pos => {
             const safePosId = pos.replace(":", "");
             const configBlock = document.getElementById(`inlet_config_${safePosId}`);
-            if (!configBlock) { isValid = false; return; }
+            if (!configBlock) { isValid = false; return; } // Should not happen if activeInletPositions is correct
             configBlock.querySelectorAll('[required]').forEach(input => { if ((input.tagName === 'SELECT' && input.value === "") || (input.tagName !== 'SELECT' && !input.value.trim())) { isValid = false; input.style.borderColor = 'var(--suds-red)'; } });
+
+            // Also validate 'Other' material input if selected
+            const materialSelect = configBlock.querySelector('.inlet-material-select');
+            const otherInput = configBlock.querySelector('.inlet-other-material');
+            if (materialSelect?.value === 'Other' && (!otherInput?.value || !otherInput.value.trim())) {
+                isValid = false;
+                if (otherInput) otherInput.style.borderColor = 'var(--suds-red)';
+            }
         });
         if (!validateInletSelection(false)) isValid = false;
         if (!isValid) {
@@ -303,72 +349,61 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } return;
         }
-        // --- END Validation ---
 
         const payload = buildJsonPayload();
         const projectName = customerProjectNameInput.value.trim() || DEFAULT_PROJECT_NAME;
 
-        // Check for prefillId in URL
         const urlParams = new URLSearchParams(window.location.search);
         const prefillId = urlParams.get('prefillId');
 
         try {
-            let allProjects = {};
-            const existingProjectsRaw = localStorage.getItem(projectDataStorageKey);
-            if (existingProjectsRaw) {
-                try {
-                    allProjects = JSON.parse(existingProjectsRaw);
-                    if (typeof allProjects !== 'object' || allProjects === null) allProjects = {};
-                } catch (e) {
-                    allProjects = {};
-                }
-            }
-            if (!allProjects[projectName]) {
-                allProjects[projectName] = [];
+            const userProjectsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
+            const projectConfigsCollectionRef = collection(userProjectsCollectionRef, projectName, CONFIGURATIONS_SUBCOLLECTION);
+
+            let configDocRef;
+            if (prefillId) {
+                configDocRef = doc(projectConfigsCollectionRef, prefillId);
+                payload.firestoreId = prefillId;
+                payload.savedId = prefillId;
+                payload.source = urlParams.get('source') || payload.source;
+                payload.configured = true;
+            } else {
+                configDocRef = doc(projectConfigsCollectionRef);
+                payload.firestoreId = configDocRef.id;
+                payload.savedId = configDocRef.id;
             }
 
-            // If prefillId is present, replace the matching config
-            let replaced = false;
-            if (prefillId) {
-                const idx = allProjects[projectName].findIndex(cfg => cfg.savedId === prefillId);
-                if (idx !== -1) {
-                    // Preserve the source tag and any other visual tags
-                    payload.source = allProjects[projectName][idx].source || undefined;
-                    payload.savedId = prefillId;
-                    payload.savedTimestamp = new Date().toISOString();
-                    allProjects[projectName][idx] = payload;
-                    replaced = true;
-                }
-            }
-            if (!replaced) {
-                payload.savedId = `suds-uc-${Date.now()}`;
-                payload.savedTimestamp = new Date().toISOString();
-                allProjects[projectName].push(payload);
-            }
-            localStorage.setItem(projectDataStorageKey, JSON.stringify(allProjects));
-            submitStatus.textContent = replaced ? 'Configuration updated and replaced original manhole-uploaded component.' : `Universal Chamber configuration saved to project: ${projectName}!`;
+            payload.savedTimestamp = new Date().toISOString();
+
+            await setDoc(configDocRef, payload);
+
+            submitStatus.textContent = `Universal Chamber configuration saved to project "${projectName}"!`;
             submitStatus.className = 'suds_status_success';
             form.reset();
             customerProjectNameInput.value = '';
-            activeInletPositions.forEach(pos => {
-                const diagramEl = document.querySelector(`.ic-inlet[data-position="${pos}"]`);
-                if (diagramEl) diagramEl.classList.remove('selected');
-            });
-            activeInletPositions = [];
-            activeInletConfigsContainer.innerHTML = '';
-            if(inletSelectorErrorDiv) inletSelectorErrorDiv.textContent = '';
-            if(document.querySelector('.ic-chamber-diagram')) document.querySelector('.ic-chamber-diagram').style.borderColor = 'transparent';
-            populateDepthOptions();
-            if(chamberSystemTypeSelect) updateChamberSystemView(chamberSystemTypeSelect.value); else updateChamberSystemView('SIC_FIC');
-            // updateProductCodeDisplay(); // Called by the functions above
-            // updateQuoteDisplay();
-        } catch (storageError) {
-            submitStatus.textContent = 'Saving to local storage failed: ' + (storageError.message || 'Unknown error.');
+            resetInlets(); // Reset inlets after successful save
+            populateDepthOptions(); // Re-populate depth options for clean state
+            if (chamberSystemTypeSelect) updateChamberSystemView(chamberSystemTypeSelect.value || 'SIC_FIC'); // Reset system view
+
+
+            if (prefillId) {
+                 const newUrl = new URL(window.location.href);
+                 newUrl.searchParams.delete('prefillId');
+                 newUrl.searchParams.delete('projectName');
+                 newUrl.searchParams.delete('source');
+                 window.history.replaceState({}, document.title, newUrl.pathname);
+            }
+
+        } catch (firebaseError) {
+            console.error("Error saving configuration to Firestore:", firebaseError);
+            submitStatus.textContent = 'Saving configuration failed: ' + (firebaseError.message || 'Unknown error.');
             submitStatus.className = 'suds_status_error';
         }
     });
 
-    function buildJsonPayload() { /* ... (no change from your existing function) ... */
+    window.buildUniversalChamberJsonPayload = buildJsonPayload;
+
+    function buildJsonPayload() {
         const formData = new FormData(form); const quote = calculateQuote(); const costPrice = quote.total; const markupPercent = parseFloat(profitMarkupInput.value) || 0; const sellPrice = costPrice * (1 + markupPercent / 100);
         const payload = {
             product_type: "universal_chamber",
@@ -393,29 +428,28 @@ document.addEventListener('DOMContentLoaded', function() {
         return payload;
     }
 
-    window.prefillFormFromAIScheduleData = function(data) { /* ... (no change - still a placeholder) ... */
-        console.log("Attempting to prefill Universal Chamber form with AI data:", data);
-        updateQuoteAndCode();
-    };
-
-    // --- Modal Prefill and Modal Mode Support ---
-    // Prefill the form from a config object (for modal editing)
+    // Prefill the form from a config object (for modal editing or AI prefill)
     window.prefillUniversalChamberFormFromConfig = function(config, options = {}) {
-        if (!config || typeof config !== 'object') return;
-        // Remove project/customer input if in modal mode
+        form.reset();
+        submitStatus.textContent = '';
+        form.querySelectorAll('.suds-input, .suds-select').forEach(el => el.style.borderColor = '');
+        if(adoptableStatusGroup) adoptableStatusGroup.style.outline = 'none';
+        resetInlets(); // Ensure all inlets are reset visually before prefilling
+
         if (options.modalMode && customerProjectNameInput) {
             customerProjectNameInput.closest('.suds-form-group')?.classList.add('suds-hide');
         }
-        // System type
+        if (options.prefillProjectName && customerProjectNameInput) {
+            customerProjectNameInput.value = options.prefillProjectName;
+        }
+
         if (config.system_type_selection && chamberSystemTypeSelect) {
             chamberSystemTypeSelect.value = config.system_type_selection;
             chamberSystemTypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
         }
-        // Water application
         if (config.water_application_selection && waterApplicationTypeSelect) {
             waterApplicationTypeSelect.value = config.water_application_selection;
         }
-        // Adoptable status
         if (config.adoptable_status) {
             const radio = form.querySelector(`input[name="adoptable_status"][value="${config.adoptable_status}"]`);
             if (radio) {
@@ -423,7 +457,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 radio.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
-        // Main chamber
         if (config.main_chamber) {
             if (config.main_chamber.chamber_depth_mm && chamberDepthSelect) {
                 populateDepthOptions();
@@ -433,46 +466,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 chamberDiameterSelect.value = config.main_chamber.chamber_diameter;
             }
         }
-        // Inlets
         if (Array.isArray(config.inlets) && config.inlets.length > 0) {
-            // Clear any existing inlets
-            activeInletPositions = [];
-            activeInletConfigsContainer.innerHTML = '';
-            diagramInletElements.forEach(el => el.classList.remove('selected'));
+            // Populate activeInletPositions and create config blocks based on config.inlets
             config.inlets.forEach(inlet => {
                 if (inlet.position) {
-                    // Activate inlet on diagram
                     const diagramEl = document.querySelector(`.ic-inlet[data-position="${inlet.position}"]`);
                     if (diagramEl && !diagramEl.classList.contains('selected')) {
-                        diagramEl.click();
-                    }
-                    // Set values in config block
-                    const safePosId = inlet.position.replace(':', '');
-                    const sizeSelect = document.getElementById(`inlet_pipe_size_${safePosId}`);
-                    const materialSelect = document.getElementById(`inlet_pipe_material_${safePosId}`);
-                    if (sizeSelect && inlet.pipe_size) sizeSelect.value = inlet.pipe_size;
-                    if (materialSelect && inlet.pipe_material) materialSelect.value = inlet.pipe_material;
-                    if (inlet.pipe_material === 'Other') {
-                        const otherInput = document.getElementById(`inlet_pipe_material_other_${safePosId}`);
-                        if (otherInput && inlet.pipe_material_other) otherInput.value = inlet.pipe_material_other;
+                        // Directly add to activeInletPositions and create block to avoid max inlet check
+                        activeInletPositions.push(inlet.position);
+                        diagramEl.classList.add('selected');
+                        createInletConfigBlock(inlet.position);
                     }
                 }
             });
+
+            // Now, populate values within the newly created config blocks
+            config.inlets.forEach(inlet => {
+                const safePosId = inlet.position.replace(':', '');
+                const sizeSelect = document.getElementById(`inlet_pipe_size_${safePosId}`);
+                const materialSelect = document.getElementById(`inlet_pipe_material_${safePosId}`);
+                if (sizeSelect && inlet.pipe_size) sizeSelect.value = inlet.pipe_size;
+                if (materialSelect && inlet.pipe_material) {
+                    materialSelect.value = inlet.pipe_material;
+                    materialSelect.dispatchEvent(new Event('change', { bubbles: true })); // Trigger change to show 'Other' field
+                }
+                if (inlet.pipe_material === 'Other') {
+                    const otherInput = document.getElementById(`inlet_pipe_material_other_${safePosId}`);
+                    if (otherInput && inlet.pipe_material_other) otherInput.value = inlet.pipe_material_other;
+                }
+            });
         }
-        // Quote details
         if (config.quote_details && typeof config.quote_details.profit_markup_percent !== 'undefined') {
             profitMarkupInput.value = config.quote_details.profit_markup_percent;
         }
-        updateProductCodeDisplay();
-        updateQuoteDisplay();
-    };
+        updateQuoteAndCode();
 
-    // Utility for modal: reset/hide project/customer input
-    window.setUniversalChamberModalMode = function(isModal) {
-        if (customerProjectNameInput) {
-            const group = customerProjectNameInput.closest('.suds-form-group');
-            if (group) group.style.display = isModal ? 'none' : '';
+        if (config.source === 'manhole_upload' && config.firestoreId && !options.modalMode) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('prefillId', config.firestoreId);
+            newUrl.searchParams.set('projectName', options.prefillProjectName || DEFAULT_PROJECT_NAME);
+            newUrl.searchParams.set('source', 'manhole_upload');
+            window.history.replaceState({}, document.title, newUrl.toString());
+            submitStatus.textContent = 'Prefilled from Manhole Schedule. Submit to update this entry.';
+            submitStatus.className = 'suds_status_info';
         }
     };
-    // --- End Modal Prefill and Modal Mode Support ---
 });
