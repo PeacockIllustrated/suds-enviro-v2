@@ -10,7 +10,6 @@
 <link rel="stylesheet" href="css/style.css"> <!-- Added shared CSS -->
 <style>
 /* ... (original styles from planner.html) ... */
-/* Styles for planner.html moved here for brevity, assuming they are correct as provided. */
 :root{--suds-blue:#1d80b9;--suds-green:#54b54d;--suds-red:#c34c4a;--suds-text-dark:#333;--suds-text-heading:var(--suds-blue);--suds-text-label:var(--suds-text-dark);--suds-border-light:#d1d5db;--suds-bg-light:#f9fafb;--suds-medium-grey:#e9ecef;--primary-blue:var(--suds-blue);--primary-blue-dark:#16699b;--primary-green:var(--suds-green);--primary-green-dark:#4e9a44;--light-grey:var(--suds-bg-light);--medium-grey:var(--suds-medium-grey);--dark-grey:#6c757d;--text-color:var(--suds-text-dark);--border-color:var(--suds-border-light);--locked-red:var(--suds-red);--locked-red-dark:#c82333;--drag-highlight-color:var(--primary-green);--ruler-color:#e6007e;--tooltip-bg:rgba(0,0,0,0.8);--tooltip-text:#ffffff;--shadow-sm:0 1px 2px 0 rgba(0,0,0,0.05);--shadow-md:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);--shadow-lg:0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05);}
 html,body{height:100%;margin:0;overflow:hidden;}
 body{font-family:'Montserrat',sans-serif;display:flex;background-color:var(--light-grey);color:var(--text-color);font-weight:400;font-size:15px;line-height:1.6; padding-top: 60px; /* Ensure content below navbar */}
@@ -86,6 +85,8 @@ body{font-family:'Montserrat',sans-serif;display:flex;background-color:var(--lig
         <li><a href="orifice.html">Orifice Config</a></li>
         <li><a href="universal_chamber.html">Chamber Config</a></li>
         <li><a href="separator.html">Separator Config</a></li>
+        <li><a href="ai_analyzer.html">AI Schedule Analyzer</a></li> <!-- NEW LINK -->
+        <!-- The logout button will be dynamically added here by main.js -->
     </ul>
 </nav>
 
@@ -111,7 +112,8 @@ body{font-family:'Montserrat',sans-serif;display:flex;background-color:var(--lig
         <div id="placed-items-list"> <p style="text-align:center;font-size:0.8em;color:#6c757d;margin-top:10px;">No items placed yet.</p> </div>
     </div>
 </div>
-<script src="js/planner.js" defer></script>
-<script src="js/main.js" defer></script>
+<script type="module" src="js/firebase-init.js"></script>
+<script type="module" src="js/planner.js"></script> <!-- Changed to type="module" -->
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
