@@ -54,33 +54,58 @@
             <p style="text-align:center; font-style:italic; margin-bottom:20px;">Ensure the correct project is selected above. Customer and Project fields below will pre-fill but can be overridden.</p>
 
             <div class="proposal-input-group">
+                <label for="customer-name">Customer Name / Company:</label>
+                <input type="text" id="customer-name" placeholder="e.g., Bob Co. / Town Council" required>
             </div>
 
             <div class="proposal-input-group">
+                <label for="project-name">Project Name / Location:</label>
+                <input type="text" id="project-name" placeholder="e.g., Site A / Drainage Upgrade" required>
             </div>
 
             <div class="proposal-input-group">
+                <label for="project-notes">Additional Project Notes (optional):</label>
+                <textarea id="project-notes" rows="3" placeholder="Any specific requirements, site conditions, or client preferences..."></textarea>
             </div>
 
             <hr style="margin: 25px 0;">
 
             <div class="suds-form-group">
+                <label for="api-key-input" style="color: var(--suds-blue); font-weight: 700;">OpenAI API Key:</label>
+                <div class="api-key-group">
+                    <input type="password" id="api-key-input" class="suds-input" placeholder="sk-..." required>
+                    <button type="button" id="save-api-key-btn" class="suds-button">Save Key</button>
+                </div>
+                <small style="display:block; text-align:center; margin-top: 5px; color: #555;">Your API key is saved locally in your browser and is not sent to SuDS Enviro.</small>
             </div>
 
             <div class="action-buttons-container">
+                <button type="button" id="generate-proposal-btn" class="suds-button">Generate Proposal</button>
+                <button type="button" id="copy-markdown-btn" class="suds-button" style="display:none;">Copy Markdown</button>
+                <button type="button" id="download-proposal-btn" class="suds-button" style="display:none;">Download Proposal (.md)</button>
             </div>
             <div id="proposal-status"></div>
             <div id="proposal-output">
+                Proposal will appear here once generated...
             </div>
         </div>
         <hr style="margin: 35px 0;">
          <div class="action-buttons-container" style="margin-top: 30px; border-top: 1px dashed var(--suds-border-light); padding-top: 20px;">
+             <button id="clear-all-project-data-btn" class="suds-button" style="background-color: var(--suds-red);">Clear ALL Project Data (DANGER!)</button>
         </div>
     </div>
 
     <!-- Catchpit Form Template -->
     <div id="catchpit-form-template" style="display:none;">
         <form id="modalCatchpitForm" class="suds-configurator-form suds-modal-form">
+            <!-- NEW: Customer/Project Name Input - This will be dynamically removed by JS in modal context -->
+            <div class="suds-form-group">
+                <label class="suds-label" for="customer_project_name" style="color: var(--suds-blue); font-weight: 700;">Customer / Project Name:</label>
+                <input type="text" id="customer_project_name" name="customer_project_name" class="suds-input" placeholder="e.g., Bob Co. - Site A (Leave blank for default project)">
+            </div>
+            <hr style="margin: 5px 0 25px 0;">
+            <!-- END NEW INPUT -->
+
             <div class="suds-form-section">
                 <h2>Catchpit Configuration</h2>
                 <h3>Catchpit Properties</h3>
@@ -146,11 +171,11 @@
                     </div>
                 </div>
             </div>
-            <div id="modal_suds_product_code_display_container">
+            <div id="suds_product_code_display_container">
                 <span id="suds_product_code_display_label">Generated Product Code:</span>
                 <span id="suds_product_code_display">Please make selections...</span>
             </div>
-            <details id="modal_shopping_list_details">
+            <details id="shopping_list_details">
                 <summary id="shopping_list_summary">Estimated Quote / Shopping List</summary>
                 <div id="shopping_list_container">
                     <ul id="shopping_list_items">
@@ -173,26 +198,248 @@
                 </div>
             </details>
             <button type="submit" class="suds-submit-btn">Submit Catchpit Configuration</button>
-            <div id="modal_suds_submit_status"></div>
+            <div id="suds_submit_status"></div>
         </form>
     </div>
     <!-- Orifice Form Template -->
     <div id="orifice-form-template" style="display:none;">
         <form id="modalOrificeForm" class="suds-configurator-form suds-modal-form">
+            <!-- NEW: Customer/Project Name Input - This will be dynamically removed by JS in modal context -->
+            <div class="suds-form-group">
+                <label class="suds-label" for="customer_project_name" style="color: var(--suds-blue); font-weight: 700;">Customer / Project Name:</label>
+                <input type="text" id="customer_project_name" name="customer_project_name" class="suds-input" placeholder="e.g., Bob Co. - Site A (Leave blank for default project)">
+            </div>
+            <hr style="margin: 5px 0 25px 0;">
+            <!-- END NEW INPUT -->
+
             <div class="suds-form-section">
+                <h2>Orifice Flow Control Configuration</h2>
+                <h3>Chamber Properties</h3>
+                <div class="suds-form-group">
+                    <label class="suds-label">Adoptable Status:</label>
+                    <div class="suds-radio-group" id="adoptable_status_group">
+                         <div>
+                            <input type="radio" id="adoptable_yes" name="adoptable_status" value="adoptable" required>
+                            <label for="adoptable_yes">Adoptable</label>
+                         </div>
+                         <div>
+                            <input type="radio" id="adoptable_no" name="adoptable_status" value="non_adoptable" required>
+                            <label for="adoptable_no">Non-Adoptable</label>
+                         </div>
+                    </div>
+                 </div>
+                <div class="suds-form-group">
+                    <label class="suds-label" for="ofc_chamber_depth">Chamber depth (mm):</label>
+                    <select class="suds-select" id="ofc_chamber_depth" name="ofc_chamber_depth" required disabled>
+                        <option value="">-- Select Adoptable Status First --</option>
+                    </select>
+                </div>
+                <div class="suds-form-group">
+                    <label class="suds-label" for="ofc_chamber_diameter">Chamber diameter:</label>
+                    <select class="suds-select" id="ofc_chamber_diameter" name="ofc_chamber_diameter" required>
+                        <option value="">-- Select Diameter --</option>
+                        <option value="315mm">315mm</option>
+                        <option value="450mm">450mm</option>
+                        <option value="600mm">600mm</option>
+                        <option value="1050mm">1050mm</option>
+                    </select>
+                </div>
+                 <div class="suds-form-group">
+                     <label class="suds-label" for="ofc_pipework_size">Pipework Size (Inlet/Outlet):</label>
+                     <select class="suds-select" id="ofc_pipework_size" name="ofc_pipework_size" required>
+                         <option value="">-- Select Size --</option>
+                         <option value="110mm">110mm</option>
+                         <option value="160mm">160mm</option>
+                         <option value="225mm">225mm</option>
+                     </select>
+                 </div>
+
+                <h3>Flow Control Parameters</h3>
+                <div class="suds-form-group">
+                    <label class="suds-label" for="ofc_target_flow">Target Flow Rate (L/s):</label>
+                    <input class="suds-input" type="number" id="ofc_target_flow" name="ofc_target_flow" min="0.1" step="0.1" placeholder="e.g., 5.5" required>
+                </div>
+                <div class="suds-form-group">
+                    <label class="suds-label" for="ofc_head_height">Design Head Height (m):</label>
+                    <input class="suds-input" type="number" id="ofc_head_height" name="ofc_head_height" min="0.1" step="0.05" placeholder="e.g., 1.2" required>
+                </div>
+                 <div class="suds-form-group">
+                    <label class="suds-label" for="ofc_orifice_diameter">Orifice Plate Diameter (mm):</label>
+                    <input class="suds-input" type="number" id="ofc_orifice_diameter" name="ofc_orifice_diameter" min="10" step="1" placeholder="e.g., 75">
+                    <small style="display:block; text-align:center; margin-top: 5px; color: #555;">(Leave blank if calculated based on flow/head)</small>
+                </div>
+                <div class="suds-form-group">
+                    <label class="suds-label">Bypass Required?</label>
+                    <div class="suds-radio-group" id="bypass_group">
+                         <div>
+                            <input type="radio" id="bypass_yes" name="bypass_required" value="yes">
+                            <label for="bypass_yes">Yes</label>
+                         </div>
+                         <div>
+                            <input type="radio" id="bypass_no" name="bypass_required" value="no" checked>
+                            <label for="bypass_no">No</label>
+                         </div>
+                    </div>
+                </div>
             </div>
-            <div id="modal_ofc_product_code_display_container">
+
+            <div id="suds_product_code_display_container">
+                <span id="suds_product_code_display_label">Generated Product Code:</span>
+                <span id="suds_product_code_display">Please make selections...</span>
             </div>
+
+            <details id="shopping_list_details">
+                <summary id="shopping_list_summary">Estimated Quote / Shopping List</summary>
+                <div id="shopping_list_container">
+                    <ul id="shopping_list_items">
+                        <li>Select options to see quote...</li>
+                    </ul>
+                    <div class="quote-calculation-area">
+                        <div class="suds-form-group markup-group">
+                            <label class="suds-label" for="profit_markup_percent">Profit Markup (%):</label>
+                            <input type="number" id="profit_markup_percent" name="profit_markup_percent" class="suds-input" min="0" step="0.1" value="0" placeholder="e.g., 15.5">
+                        </div>
+                        <div id="shopping_list_total">
+                            <span id="cost_price_label">Cost Price:</span>
+                            <span id="cost_price_value">£0.00</span>
+                        </div>
+                        <div id="shopping_list_sell_price">
+                            <span id="sell_price_label">Sell Price (inc. Markup):</span>
+                            <span id="sell_price_value">£0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <button type="submit" class="suds-submit-btn">Submit Orifice Configuration</button>
+            <div id="suds_submit_status"></div>
         </form>
     </div>
     <!-- Separator Form Template -->
     <div id="separator-form-template" style="display:none;">
         <form id="modalSeparatorForm" class="suds-configurator-form suds-modal-form">
+            <!-- NEW: Customer/Project Name Input - This will be dynamically removed by JS in modal context -->
+            <div class="suds-form-group">
+                <label class="suds-label" for="customer_project_name" style="color: var(--suds-blue); font-weight: 700;">Customer / Project Name:</label>
+                <input type="text" id="customer_project_name" name="customer_project_name" class="suds-input" placeholder="e.g., Bob Co. - Site A (Leave blank for default project)">
+            </div>
+            <hr style="margin: 5px 0 25px 0;">
+            <!-- END NEW INPUT -->
+
+            <div class="suds-form-section">
+                <h2>Hydrodynamic Separator Configuration</h2>
+                <!-- ... rest of your original form content ... -->
+                <h3>Core Properties</h3>
+                <div class="suds-form-group">
+                    <label class="suds-label">Adoptable Status:</label>
+                    <div class="suds-radio-group" id="adoptable_status_group">
+                         <div>
+                            <input type="radio" id="adoptable_yes" name="adoptable_status" value="adoptable" required>
+                            <label for="adoptable_yes">Adoptable</label>
+                         </div>
+                         <div>
+                            <input type="radio" id="adoptable_no" name="adoptable_status" value="non_adoptable" required>
+                            <label for="adoptable_no">Non-Adoptable</label>
+                         </div>
+                    </div>
+                 </div>
+                <div class="suds-form-group">
+                    <label class="suds-label" for="hds_depth">Chamber depth (mm):</label>
+                    <select class="suds-select" id="hds_depth" name="hds_depth" required disabled>
+                        <option value="">-- Select Adoptable Status First --</option>
+                    </select>
+                </div>
+                <div class="suds-form-group">
+                    <label class="suds-label" for="hds_flow_rate">Design Flow Rate (L/s):</label>
+                    <input class="suds-input" type="number" id="hds_flow_rate" name="hds_flow_rate" min="1" step="1" placeholder="e.g., 25" required>
+                </div>
+                <div class="suds-form-group">
+                     <label class="suds-label" for="hds_pipework_diameter">Pipework Diameter (mm):</label>
+                     <select class="suds-select" id="hds_pipework_diameter" name="hds_pipework_diameter" required>
+                         <option value="">-- Select Size --</option>
+                         <option value="110mm">110mm</option>
+                         <option value="160mm">160mm</option>
+                         <option value="225mm">225mm</option>
+                         <option value="300mm">300mm</option>
+                         <option value="450mm">450mm</option>
+                         <option value="600mm">600mm</option>
+                     </select>
+                 </div>
+                 <div class="suds-form-group">
+                    <label class="suds-label" for="hds_space">Space Available / Model Size:</label>
+                    <select class="suds-select" id="hds_space" name="hds_space" required>
+                        <option value="">-- Select Size Class --</option>
+                        <option value="Compact">Compact</option>
+                        <option value="Standard">Standard</option>
+                        <option value="Extended">Extended</option>
+                         <option value="Bespoke">Bespoke (Requires Consultation)</option>
+                    </select>
+                </div>
+
+                <h3>Target Contaminants</h3>
+                 <div class="suds-form-group">
+                     <label class="suds-label">Select pollutants to target (at least one):</label>
+                     <div class="suds-checkbox-group" id="contaminants_group">
+                          <div>
+                             <input type="checkbox" id="cont_hydrocarbons" name="target_contaminants[]" value="Hydrocarbons">
+                             <label for="cont_hydrocarbons">Hydrocarbons</label>
+                          </div>
+                          <div>
+                              <input type="checkbox" id="cont_floatables" name="target_contaminants[]" value="Floatables">
+                              <label for="cont_floatables">Floatables</label>
+                          </div>
+                          <div>
+                              <input type="checkbox" id="cont_silt" name="target_contaminants[]" value="Silt">
+                              <label for="cont_silt">Silt</label>
+                          </div>
+                     </div>
+                     <div id="contaminants_error" class="suds-error-message"></div>
+                 </div>
+            </div>
+
+            <div id="suds_product_code_display_container">
+                <span id="suds_product_code_display_label">Generated Product Code:</span>
+                <span id="suds_product_code_display">Please make selections...</span>
+            </div>
+
+            <details id="shopping_list_details">
+                <summary id="shopping_list_summary">Estimated Quote / Shopping List</summary>
+                <div id="shopping_list_container">
+                    <ul id="shopping_list_items">
+                        <li>Select options to see quote...</li>
+                    </ul>
+                    <div class="quote-calculation-area">
+                        <div class="suds-form-group markup-group">
+                            <label class="suds-label" for="profit_markup_percent">Profit Markup (%):</label>
+                            <input type="number" id="profit_markup_percent" name="profit_markup_percent" class="suds-input" min="0" step="0.1" value="0" placeholder="e.g., 15.5">
+                        </div>
+                        <div id="shopping_list_total">
+                            <span id="cost_price_label">Cost Price:</span>
+                            <span id="cost_price_value">£0.00</span>
+                        </div>
+                        <div id="shopping_list_sell_price">
+                            <span id="sell_price_label">Sell Price (inc. Markup):</span>
+                            <span id="sell_price_value">£0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <button type="submit" class="suds-submit-btn">Submit Separator Configuration</button>
+            <div id="suds_submit_status"></div>
         </form>
     </div>
     <!-- Universal Chamber Form Template -->
     <div id="universal-chamber-form-template" style="display:none;">
         <form id="modalUniversalChamberForm" class="suds-configurator-form suds-modal-form">
+            <!-- NEW: Customer/Project Name Input - This will be dynamically removed by JS in modal context -->
+            <div class="suds-form-group">
+                <label class="suds-label" for="customer_project_name" style="color: var(--suds-blue); font-weight: 700;">Customer / Project Name:</label>
+                <input type="text" id="customer_project_name" name="customer_project_name" class="suds-input" placeholder="e.g., Bob Co. - Site A (Leave blank for default project)">
+            </div>
+            <hr style="margin: 5px 0 25px 0;">
+            <!-- END NEW INPUT -->
+
             <div class="suds-form-section">
                 <h2>Universal Chamber Configuration</h2>
                 <div class="suds-form-group">
@@ -204,13 +451,13 @@
                     </select>
                 </div>
                 <h3>Main Chamber Properties</h3>
-                <div class="suds-form-group">
+                 <div class="suds-form-group">
                     <label class="suds-label">Adoptable Status:</label>
                     <div class="suds-radio-group" id="adoptable_status_group">
-                        <div> <input type="radio" id="adoptable_yes" name="adoptable_status" value="adoptable" required> <label for="adoptable_yes">Adoptable</label> </div>
-                        <div> <input type="radio" id="adoptable_no" name="adoptable_status" value="non_adoptable" required> <label for="adoptable_no">Non-Adoptable</label> </div>
+                         <div> <input type="radio" id="adoptable_yes" name="adoptable_status" value="adoptable" required> <label for="adoptable_yes">Adoptable</label> </div>
+                         <div> <input type="radio" id="adoptable_no" name="adoptable_status" value="non_adoptable" required> <label for="adoptable_no">Non-Adoptable</label> </div>
                     </div>
-                </div>
+                 </div>
                 <div class="suds-form-group">
                     <label class="suds-label" for="water_application_type">Water Application Type:</label>
                     <select class="suds-select" id="water_application_type" name="water_application_type" required>
