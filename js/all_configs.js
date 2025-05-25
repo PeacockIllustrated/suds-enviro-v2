@@ -75,11 +75,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Only show projects that have at least one config
         projectNames.sort().forEach(name => {
-            const option = document.createElement('option');
-            option.value = name;
-            option.textContent = name === DEFAULT_PROJECT_NAME ? "Default Project (No Name Specified)" : name;
-            projectSelectDropdown.appendChild(option);
+            if (Array.isArray(currentProjectsData[name]) && currentProjectsData[name].length > 0) {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name === DEFAULT_PROJECT_NAME ? "Default Project (No Name Specified)" : name;
+                projectSelectDropdown.appendChild(option);
+            }
         });
     }
 
@@ -129,6 +132,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (config.savedTimestamp) { const timeP = document.createElement('p'); timeP.className = 'timestamp'; timeP.textContent = `Saved: ${new Date(config.savedTimestamp).toLocaleString()}`; detailsDiv.appendChild(timeP); }
                 if (config.savedId) { const idSP = document.createElement('p'); idSP.className = 'timestamp'; idSP.textContent = `Saved ID: ${config.savedId}`; detailsDiv.appendChild(idSP); }
 
+                // --- Highlight manhole-uploaded products ---
+                if (config.source === 'manhole_upload') {
+                    const badge = document.createElement('span');
+                    badge.textContent = 'Manhole Upload';
+                    badge.style.background = 'var(--suds-blue, #1d80b9)';
+                    badge.style.color = 'white';
+                    badge.style.fontSize = '0.85em';
+                    badge.style.fontWeight = 'bold';
+                    badge.style.padding = '2px 8px';
+                    badge.style.borderRadius = '4px';
+                    badge.style.marginLeft = '10px';
+                    detailsDiv.appendChild(badge);
+                }
+
                 const actionsDiv = document.createElement('div');
                 actionsDiv.className = 'config-item-actions';
                 const viewDetailsButton = document.createElement('button');
@@ -138,6 +155,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     const pre = listItem.querySelector('pre');
                     if (pre) pre.style.display = pre.style.display === 'none' ? 'block' : 'none';
                 };
+                actionsDiv.appendChild(viewDetailsButton);
+
+                // --- Add Configure/Edit button for manhole-uploaded products ---
+                if (config.source === 'manhole_upload') {
+                    const configBtn = document.createElement('button');
+                    configBtn.className = 'configure-product-btn';
+                    configBtn.textContent = config.configured ? 'Edit Configuration' : 'Configure Product';
+                    configBtn.onclick = function() {
+                        openConfigModal(config, selectedProjectName, index);
+                    };
+                    actionsDiv.appendChild(configBtn);
+                }
+
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Delete';
                 deleteButton.className = 'delete-btn';
@@ -146,7 +176,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         deleteConfiguration(selectedProjectName, index);
                     }
                 };
-                actionsDiv.appendChild(viewDetailsButton);
                 actionsDiv.appendChild(deleteButton);
 
                 const detailsPre = document.createElement('pre');
@@ -392,11 +421,14 @@ Website: suds-enviro.com
                 const requestBody = {
                     model: "gpt-4o", // This is critical and must be correct
                     messages: [
-                        { "role": "system", "content": systemPrompt },
-                        { "role": "user", "content": userQuery }
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userQuery }
                     ],
-                    max_tokens: 3500,
-                    temperature: 0.5
+                    temperature: 0.7,
+                    max_tokens: 1500,
+                    top_p: 1,
+                    frequency_penalty: 0,
+                    presence_penalty: 0
                 };
 
                 const response = await fetch(aiApiEndpoint, {
@@ -409,85 +441,246 @@ Website: suds-enviro.com
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ error: { message: "Failed to parse API error response." } }));
-                    throw new Error(`API request failed: ${errorData.error?.message || response.statusText} (Status: ${response.status})`);
+                    throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
                 }
 
-                const data = await response.json();
-                rawMarkdownForDownload = data.choices?.[0]?.message?.content || "Could not extract proposal text from API response.";
+                const responseData = await response.json();
+                console.log(">>> API response received:", responseData);
 
-                if (rawMarkdownForDownload && rawMarkdownForDownload !== "Could not extract proposal text from API response.") {
-                    if (typeof marked !== 'undefined' && proposalOutputDiv) { proposalOutputDiv.innerHTML = marked.parse(rawMarkdownForDownload); }
-                    else if (proposalOutputDiv) { proposalOutputDiv.textContent = rawMarkdownForDownload; }
-                    if(proposalStatusDiv) proposalStatusDiv.textContent = 'Proposal generated successfully!';
-                    if(downloadProposalButton) downloadProposalButton.style.display = 'inline-block';
-                    if(copyMarkdownButton) copyMarkdownButton.style.display = 'inline-block'; // Show copy button
+                if (responseData.choices && responseData.choices.length > 0) {
+                    const aiGeneratedMarkdown = responseData.choices[0].message.content.trim();
+                    proposalOutputDiv.innerHTML = aiGeneratedMarkdown.replace(/\n/g, '<br>');
+                    rawMarkdownForDownload = aiGeneratedMarkdown;
+                    downloadProposalButton.style.display = 'inline-block';
+                    copyMarkdownButton.style.display = 'inline-block';
+                    if (proposalStatusDiv) proposalStatusDiv.textContent = 'Proposal generated successfully!';
                 } else {
-                    if(proposalStatusDiv) proposalStatusDiv.textContent = 'Failed to generate valid proposal content from AI.';
-                    // Buttons remain hidden (as set at the start of the generate function)
+                    throw new Error("No valid response from AI.");
                 }
             } catch (error) {
-                console.error('Error generating proposal:', error);
-                if(proposalOutputDiv) proposalOutputDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
-                if(proposalStatusDiv) proposalStatusDiv.textContent = 'Proposal generation failed.';
-                 // Buttons remain hidden
+                console.error("Error during proposal generation:", error);
+                if (proposalStatusDiv) proposalStatusDiv.textContent = 'Error generating proposal. Please try again.';
+                alert('Error during proposal generation: ' + error.message);
             } finally {
-                if(generateProposalButton) generateProposalButton.disabled = false; // Re-enable button
+                generateProposalButton.disabled = false;
             }
         });
     }
 
-    // --- COPY MARKDOWN BUTTON ---
+    // --- Markdown Copy & Download ---
     if (copyMarkdownButton) {
         copyMarkdownButton.addEventListener('click', function() {
-            if (!rawMarkdownForDownload || rawMarkdownForDownload === "Could not extract proposal text from API response." || rawMarkdownForDownload.startsWith("Error generating proposal")) {
-                alert('No valid proposal Markdown to copy. Please generate a proposal first.');
+            if (!rawMarkdownForDownload) {
+                alert('No proposal generated yet. Please generate a proposal first.');
                 return;
             }
-            navigator.clipboard.writeText(rawMarkdownForDownload).then(function() {
-                const originalText = copyMarkdownButton.textContent;
-                copyMarkdownButton.textContent = 'Copied!';
-                setTimeout(() => {
-                    copyMarkdownButton.textContent = originalText;
-                }, 2000);
-            }).catch(function(err) {
-                console.error('Failed to copy markdown: ', err);
-                alert('Failed to copy markdown. Your browser might not support this feature or permissions were denied.');
-            });
+            navigator.clipboard.writeText(rawMarkdownForDownload)
+                .then(() => { alert('Proposal markdown copied to clipboard!'); })
+                .catch(err => { alert('Failed to copy markdown: ' + err.message); });
         });
     }
 
-    // --- DOWNLOAD PROPOSAL BUTTON ---
     if (downloadProposalButton) {
         downloadProposalButton.addEventListener('click', function() {
-            if (!proposalOutputDiv || !rawMarkdownForDownload || rawMarkdownForDownload === "Could not extract proposal text from API response." || rawMarkdownForDownload.startsWith("Error generating proposal")) {
-                alert('No valid proposal content to download. Please generate a proposal first.'); return;
+            if (!rawMarkdownForDownload) {
+                alert('No proposal generated yet. Please generate a proposal first.');
+                return;
             }
-            const htmlToDownload = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>SuDS Enviro Project Proposal</title><style>body{font-family:Arial,sans-serif;line-height:1.6;margin:40px;color:#333}h1,h2,h3,h4,h5,h6{color:#1d80b9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif}h1{font-size:26px;margin-bottom:15px;border-bottom:2px solid #1d80b9;padding-bottom:8px}h2{font-size:22px;margin-top:30px;margin-bottom:12px;border-bottom:1px solid #54b54d;padding-bottom:6px}h3{font-size:18px;margin-top:25px;margin-bottom:10px;color:#1a73a8}p{margin-bottom:12px;text-align:justify}ul,ol{margin-left:20px;margin-bottom:12px;padding-left:20px}li{margin-bottom:6px}strong{font-weight:700}em{font-style:italic}hr{border:0;height:1px;background:#ccc;margin:25px 0}blockquote{border-left:4px solid #ddd;padding-left:15px;margin-left:0;color:#555;font-style:italic}pre{background-color:#f7f7f7;padding:15px;border-radius:4px;overflow-x:auto;font-family:'Courier New',Courier,monospace;font-size:13px}code{font-family:'Courier New',Courier,monospace;background-color:#f0f0f0;padding:2px 4px;border-radius:3px;font-size:.9em}pre code{background-color:transparent;padding:0}</style></head><body>${typeof marked !== 'undefined' ? marked.parse(rawMarkdownForDownload) : '<pre>' + rawMarkdownForDownload + '</pre>'}</body></html>`;
-            const blob = new Blob([htmlToDownload], { type: 'text/html;charset=utf-8' });
-            const today = new Date();
-            const dateString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
-            const filenameProjectPart = projectNameInput.value.trim().replace(/[^\w.-]/g, '_') || projectSelectDropdown.value.replace(/[^\w.-]/g, '_') || 'General';
-            const filename = `SuDS_Enviro_Proposal_${filenameProjectPart}_${dateString}.html`;
+            const blob = new Blob([rawMarkdownForDownload], { type: 'text/markdown' });
             const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob); link.download = filename;
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.download = `proposal_${projectNameInput.value.trim().replace(/[^\w.-]/g, '_')}.md`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
-            alert('Proposal HTML file ready. You can open this file with Word or import into Google Docs for further editing and saving as .docx.');
         });
     }
 
-    // --- Initial Page Load ---
+    // Initial load
     loadApiKey();
     loadInitialData();
+});
 
-    // --- Storage Event Listener ---
-    window.addEventListener('storage', function(event) {
-        if (event.key === projectDataStorageKey) {
-            loadInitialData();
-        }
-        if (event.key === userApiKeyStorageKey) {
-            loadApiKey();
+// --- Modal styling and form injection logic
+function openConfigModal(config, projectName, configIndex) {
+    // Remove any existing modal
+    let existingModal = document.getElementById('suds-config-modal');
+    if (existingModal) existingModal.remove();
+
+    // Create modal overlay
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = 'suds-config-modal';
+    modalOverlay.style.position = 'fixed';
+    modalOverlay.style.top = '0';
+    modalOverlay.style.left = '0';
+    modalOverlay.style.width = '100vw';
+    modalOverlay.style.height = '100vh';
+    modalOverlay.style.background = 'rgba(0,0,0,0.45)';
+    modalOverlay.style.zIndex = '9999';
+    modalOverlay.style.display = 'flex';
+    modalOverlay.style.alignItems = 'center';
+    modalOverlay.style.justifyContent = 'center';
+    modalOverlay.style.overflowY = 'auto';
+
+    // Modal content container
+    const modalContent = document.createElement('div');
+    modalContent.style.background = '#fff';
+    modalContent.style.borderRadius = '12px';
+    modalContent.style.boxShadow = '0 8px 32px rgba(0,0,0,0.18)';
+    modalContent.style.maxWidth = '600px';
+    modalContent.style.width = '95vw';
+    modalContent.style.maxHeight = '90vh';
+    modalContent.style.overflowY = 'auto';
+    modalContent.style.margin = '40px 0';
+    modalContent.style.padding = '36px 32px 32px 32px';
+    modalContent.style.position = 'relative';
+
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '18px';
+    closeBtn.style.right = '22px';
+    closeBtn.style.fontSize = '2.1em';
+    closeBtn.style.background = 'none';
+    closeBtn.style.border = 'none';
+    closeBtn.style.color = '#1d80b9';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.onclick = () => modalOverlay.remove();
+    modalContent.appendChild(closeBtn);
+
+    // Modal title
+    const title = document.createElement('h2');
+    title.textContent = `${config.derived_product_name || config.product_type || 'Product'} Configuration`;
+    title.style.marginTop = '0';
+    title.style.marginBottom = '18px';
+    title.style.color = 'var(--suds-blue, #1d80b9)';
+    modalContent.appendChild(title);
+
+    // Inject the correct form (clone from hidden template or build inline)
+    let formHtml = '';
+    if (config.product_type === 'catchpit') {
+        formHtml = document.getElementById('catchpit-form-template').innerHTML;
+    } else if (config.product_type === 'orifice_flow_control' || config.product_type === 'chamber') {
+        formHtml = document.getElementById('orifice-form-template').innerHTML;
+    } else if (config.product_type === 'separator' || config.product_type === 'hydrodynamic_separator') {
+        formHtml = document.getElementById('separator-form-template').innerHTML;
+    } else if (config.product_type === 'universal_chamber') {
+        formHtml = document.getElementById('universal-chamber-form-template').innerHTML;
+    } else {
+        formHtml = '<div style="color:#b00;">Unsupported product type for modal configuration.</div>';
+    }
+    const formWrapper = document.createElement('div');
+    formWrapper.innerHTML = formHtml;
+    modalContent.appendChild(formWrapper);
+
+    // Remove project/customer input at the top if present
+    const projectInput = formWrapper.querySelector('#customer_project_name, [name="customer_project_name"]');
+    if (projectInput) projectInput.closest('div, .suds-form-group, .proposal-input-group').remove();
+
+    // Fix duplicate IDs in modal form (prefix all IDs and for attributes with 'modal_' if not already)
+    formWrapper.querySelectorAll('[id]').forEach(el => {
+        if (!el.id.startsWith('modal_')) {
+            el.id = 'modal_' + el.id;
         }
     });
-});
+    formWrapper.querySelectorAll('label[for]').forEach(label => {
+        if (!label.htmlFor.startsWith('modal_')) {
+            label.htmlFor = 'modal_' + label.htmlFor;
+        }
+    });
+    // Also update name attributes to avoid duplicate names in DOM
+    formWrapper.querySelectorAll('[name]').forEach(el => {
+        if (!el.name.startsWith('modal_')) {
+            el.name = 'modal_' + el.name;
+        }
+    });
+
+    // Prefill form fields from config (for each type)
+    setTimeout(() => {
+        if (config.product_type === 'catchpit' && window.prefillCatchpitFormFromConfig) {
+            window.prefillCatchpitFormFromConfig(config, { modalMode: true });
+        } else if ((config.product_type === 'orifice_flow_control' || config.product_type === 'chamber') && window.prefillOrificeFormFromConfig) {
+            window.prefillOrificeFormFromConfig(config, { modalMode: true });
+        } else if ((config.product_type === 'separator' || config.product_type === 'hydrodynamic_separator') && window.prefillSeparatorFormFromConfig) {
+            window.prefillSeparatorFormFromConfig(config, { modalMode: true });
+        } else if (config.product_type === 'universal_chamber' && window.prefillUniversalChamberFormFromConfig) {
+            window.prefillUniversalChamberFormFromConfig(config, { modalMode: true });
+        }
+    }, 0);
+
+    // Modal submit logic: on submit, update the config in localStorage and close modal
+    const modalForm = formWrapper.querySelector('form');
+    if (modalForm) {
+        modalForm.onsubmit = function(e) {
+            e.preventDefault();
+            // Gather form data and update config in localStorage
+            let newPayload;
+            try {
+                // Temporarily map modal-prefixed fields to expected names for buildJsonPayload
+                formWrapper.querySelectorAll('[id^="modal_"]').forEach(el => {
+                    if (el.id && el.id.startsWith('modal_')) {
+                        const origId = el.id.replace('modal_', '');
+                        if (!document.getElementById(origId)) {
+                            el.setAttribute('data-temp-orig-id', el.id);
+                            el.id = origId;
+                        }
+                    }
+                    if (el.name && el.name.startsWith('modal_')) {
+                        const origName = el.name.replace('modal_', '');
+                        el.setAttribute('data-temp-orig-name', el.name);
+                        el.name = origName;
+                    }
+                });
+                if (config.product_type === 'catchpit' && window.buildJsonPayload) {
+                    newPayload = window.buildJsonPayload();
+                } else if ((config.product_type === 'orifice_flow_control' || config.product_type === 'chamber') && window.buildJsonPayload) {
+                    newPayload = window.buildJsonPayload();
+                } else if ((config.product_type === 'separator' || config.product_type === 'hydrodynamic_separator') && window.buildJsonPayload) {
+                    newPayload = window.buildJsonPayload();
+                } else if (config.product_type === 'universal_chamber' && window.buildJsonPayload) {
+                    newPayload = window.buildJsonPayload();
+                }
+                // Restore modal-prefixed IDs/names
+                formWrapper.querySelectorAll('[data-temp-orig-id]').forEach(el => {
+                    el.id = el.getAttribute('data-temp-orig-id');
+                    el.removeAttribute('data-temp-orig-id');
+                });
+                formWrapper.querySelectorAll('[data-temp-orig-name]').forEach(el => {
+                    el.name = el.getAttribute('data-temp-orig-name');
+                    el.removeAttribute('data-temp-orig-name');
+                });
+            } catch (err) {
+                alert('Error gathering form data: ' + err.message);
+                return;
+            }
+            if (!newPayload) {
+                alert('Could not gather form data.');
+                return;
+            }
+            // Preserve source, savedId, savedTimestamp
+            newPayload.source = config.source;
+            newPayload.savedId = config.savedId;
+            newPayload.savedTimestamp = new Date().toISOString();
+            // Update in localStorage
+            const storedData = localStorage.getItem(projectDataStorageKey);
+            let allProjects = {};
+            if (storedData) {
+                try {
+                    allProjects = JSON.parse(storedData);
+                    if (typeof allProjects !== 'object' || allProjects === null) allProjects = {};
+                } catch (e) { allProjects = {}; }
+            }
+            if (!allProjects[projectName]) allProjects[projectName] = [];
+            allProjects[projectName][configIndex] = newPayload;
+            localStorage.setItem(projectDataStorageKey, JSON.stringify(allProjects));
+            modalOverlay.remove();
+            if (typeof displayConfigurationsForSelectedProject === 'function') displayConfigurationsForSelectedProject();
+        };
+    }
+
+    // Add modal to DOM
+    modalOverlay.appendChild(modalContent);
+    document.body.appendChild(modalOverlay);
+}

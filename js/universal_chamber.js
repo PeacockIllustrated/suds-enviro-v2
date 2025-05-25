@@ -308,6 +308,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const payload = buildJsonPayload();
         const projectName = customerProjectNameInput.value.trim() || DEFAULT_PROJECT_NAME;
 
+        // Check for prefillId in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const prefillId = urlParams.get('prefillId');
+
         try {
             let allProjects = {};
             const existingProjectsRaw = localStorage.getItem(projectDataStorageKey);
@@ -316,45 +320,52 @@ document.addEventListener('DOMContentLoaded', function() {
                     allProjects = JSON.parse(existingProjectsRaw);
                     if (typeof allProjects !== 'object' || allProjects === null) allProjects = {};
                 } catch (e) {
-                    console.error("Error parsing existing project data:", e);
                     allProjects = {};
                 }
             }
-
             if (!allProjects[projectName]) {
                 allProjects[projectName] = [];
             }
 
-            const configToSave = { ...payload };
-            configToSave.savedId = `suds-chamber-${Date.now()}`;
-            configToSave.savedTimestamp = new Date().toISOString();
-
-            allProjects[projectName].push(configToSave);
+            // If prefillId is present, replace the matching config
+            let replaced = false;
+            if (prefillId) {
+                const idx = allProjects[projectName].findIndex(cfg => cfg.savedId === prefillId);
+                if (idx !== -1) {
+                    // Preserve the source tag and any other visual tags
+                    payload.source = allProjects[projectName][idx].source || undefined;
+                    payload.savedId = prefillId;
+                    payload.savedTimestamp = new Date().toISOString();
+                    allProjects[projectName][idx] = payload;
+                    replaced = true;
+                }
+            }
+            if (!replaced) {
+                payload.savedId = `suds-uc-${Date.now()}`;
+                payload.savedTimestamp = new Date().toISOString();
+                allProjects[projectName].push(payload);
+            }
             localStorage.setItem(projectDataStorageKey, JSON.stringify(allProjects));
-
-            submitStatus.textContent = `Chamber configuration saved to project: ${projectName}!`;
+            submitStatus.textContent = replaced ? 'Configuration updated and replaced original manhole-uploaded component.' : `Universal Chamber configuration saved to project: ${projectName}!`;
             submitStatus.className = 'suds_status_success';
-
+            form.reset();
+            customerProjectNameInput.value = '';
+            activeInletPositions.forEach(pos => {
+                const diagramEl = document.querySelector(`.ic-inlet[data-position="${pos}"]`);
+                if (diagramEl) diagramEl.classList.remove('selected');
+            });
+            activeInletPositions = [];
+            activeInletConfigsContainer.innerHTML = '';
+            if(inletSelectorErrorDiv) inletSelectorErrorDiv.textContent = '';
+            if(document.querySelector('.ic-chamber-diagram')) document.querySelector('.ic-chamber-diagram').style.borderColor = 'transparent';
+            populateDepthOptions();
+            if(chamberSystemTypeSelect) updateChamberSystemView(chamberSystemTypeSelect.value); else updateChamberSystemView('SIC_FIC');
+            // updateProductCodeDisplay(); // Called by the functions above
+            // updateQuoteDisplay();
         } catch (storageError) {
-            console.error("Error saving Chamber configuration to project:", storageError);
             submitStatus.textContent = 'Saving to local storage failed: ' + (storageError.message || 'Unknown error.');
             submitStatus.className = 'suds_status_error';
         }
-
-        form.reset();
-        customerProjectNameInput.value = '';
-        activeInletPositions.forEach(pos => {
-            const diagramEl = document.querySelector(`.ic-inlet[data-position="${pos}"]`);
-            if (diagramEl) diagramEl.classList.remove('selected');
-        });
-        activeInletPositions = [];
-        activeInletConfigsContainer.innerHTML = '';
-        if(inletSelectorErrorDiv) inletSelectorErrorDiv.textContent = '';
-        if(document.querySelector('.ic-chamber-diagram')) document.querySelector('.ic-chamber-diagram').style.borderColor = 'transparent';
-        populateDepthOptions();
-        if(chamberSystemTypeSelect) updateChamberSystemView(chamberSystemTypeSelect.value); else updateChamberSystemView('SIC_FIC');
-        // updateProductCodeDisplay(); // Called by the functions above
-        // updateQuoteDisplay();
     });
 
     function buildJsonPayload() { /* ... (no change from your existing function) ... */
@@ -386,4 +397,82 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Attempting to prefill Universal Chamber form with AI data:", data);
         updateQuoteAndCode();
     };
+
+    // --- Modal Prefill and Modal Mode Support ---
+    // Prefill the form from a config object (for modal editing)
+    window.prefillUniversalChamberFormFromConfig = function(config, options = {}) {
+        if (!config || typeof config !== 'object') return;
+        // Remove project/customer input if in modal mode
+        if (options.modalMode && customerProjectNameInput) {
+            customerProjectNameInput.closest('.suds-form-group')?.classList.add('suds-hide');
+        }
+        // System type
+        if (config.system_type_selection && chamberSystemTypeSelect) {
+            chamberSystemTypeSelect.value = config.system_type_selection;
+            chamberSystemTypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        // Water application
+        if (config.water_application_selection && waterApplicationTypeSelect) {
+            waterApplicationTypeSelect.value = config.water_application_selection;
+        }
+        // Adoptable status
+        if (config.adoptable_status) {
+            const radio = form.querySelector(`input[name="adoptable_status"][value="${config.adoptable_status}"]`);
+            if (radio) {
+                radio.checked = true;
+                radio.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+        // Main chamber
+        if (config.main_chamber) {
+            if (config.main_chamber.chamber_depth_mm && chamberDepthSelect) {
+                populateDepthOptions();
+                chamberDepthSelect.value = config.main_chamber.chamber_depth_mm;
+            }
+            if (config.main_chamber.chamber_diameter && chamberDiameterSelect) {
+                chamberDiameterSelect.value = config.main_chamber.chamber_diameter;
+            }
+        }
+        // Inlets
+        if (Array.isArray(config.inlets) && config.inlets.length > 0) {
+            // Clear any existing inlets
+            activeInletPositions = [];
+            activeInletConfigsContainer.innerHTML = '';
+            diagramInletElements.forEach(el => el.classList.remove('selected'));
+            config.inlets.forEach(inlet => {
+                if (inlet.position) {
+                    // Activate inlet on diagram
+                    const diagramEl = document.querySelector(`.ic-inlet[data-position="${inlet.position}"]`);
+                    if (diagramEl && !diagramEl.classList.contains('selected')) {
+                        diagramEl.click();
+                    }
+                    // Set values in config block
+                    const safePosId = inlet.position.replace(':', '');
+                    const sizeSelect = document.getElementById(`inlet_pipe_size_${safePosId}`);
+                    const materialSelect = document.getElementById(`inlet_pipe_material_${safePosId}`);
+                    if (sizeSelect && inlet.pipe_size) sizeSelect.value = inlet.pipe_size;
+                    if (materialSelect && inlet.pipe_material) materialSelect.value = inlet.pipe_material;
+                    if (inlet.pipe_material === 'Other') {
+                        const otherInput = document.getElementById(`inlet_pipe_material_other_${safePosId}`);
+                        if (otherInput && inlet.pipe_material_other) otherInput.value = inlet.pipe_material_other;
+                    }
+                }
+            });
+        }
+        // Quote details
+        if (config.quote_details && typeof config.quote_details.profit_markup_percent !== 'undefined') {
+            profitMarkupInput.value = config.quote_details.profit_markup_percent;
+        }
+        updateProductCodeDisplay();
+        updateQuoteDisplay();
+    };
+
+    // Utility for modal: reset/hide project/customer input
+    window.setUniversalChamberModalMode = function(isModal) {
+        if (customerProjectNameInput) {
+            const group = customerProjectNameInput.closest('.suds-form-group');
+            if (group) group.style.display = isModal ? 'none' : '';
+        }
+    };
+    // --- End Modal Prefill and Modal Mode Support ---
 });

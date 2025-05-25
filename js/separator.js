@@ -152,6 +152,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const payload = buildJsonPayload();
         const projectName = customerProjectNameInput.value.trim() || DEFAULT_PROJECT_NAME;
 
+        // Check for prefillId in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const prefillId = urlParams.get('prefillId');
+
         try {
             let allProjects = {};
             const existingProjectsRaw = localStorage.getItem(projectDataStorageKey);
@@ -160,36 +164,42 @@ document.addEventListener('DOMContentLoaded', function() {
                     allProjects = JSON.parse(existingProjectsRaw);
                     if (typeof allProjects !== 'object' || allProjects === null) allProjects = {};
                 } catch (e) {
-                    console.error("Error parsing existing project data:", e);
                     allProjects = {};
                 }
             }
-
             if (!allProjects[projectName]) {
                 allProjects[projectName] = [];
             }
 
-            const configToSave = { ...payload };
-            configToSave.savedId = `suds-hds-${Date.now()}`;
-            configToSave.savedTimestamp = new Date().toISOString();
-
-            allProjects[projectName].push(configToSave);
+            // If prefillId is present, replace the matching config
+            let replaced = false;
+            if (prefillId) {
+                const idx = allProjects[projectName].findIndex(cfg => cfg.savedId === prefillId);
+                if (idx !== -1) {
+                    // Preserve the source tag and any other visual tags
+                    payload.source = allProjects[projectName][idx].source || undefined;
+                    payload.savedId = prefillId;
+                    payload.savedTimestamp = new Date().toISOString();
+                    allProjects[projectName][idx] = payload;
+                    replaced = true;
+                }
+            }
+            if (!replaced) {
+                payload.savedId = `suds-sep-${Date.now()}`;
+                payload.savedTimestamp = new Date().toISOString();
+                allProjects[projectName].push(payload);
+            }
             localStorage.setItem(projectDataStorageKey, JSON.stringify(allProjects));
-
-            submitStatus.textContent = `Separator configuration saved to project: ${projectName}!`;
+            submitStatus.textContent = replaced ? 'Configuration updated and replaced original manhole-uploaded component.' : `Separator configuration saved to project: ${projectName}!`;
             submitStatus.className = 'suds_status_success';
-
+            form.reset();
+            customerProjectNameInput.value = '';
+            populateDepthOptions();
+            updateQuoteDisplay();
         } catch (storageError) {
-            console.error("Error saving Separator configuration to project:", storageError);
             submitStatus.textContent = 'Saving to local storage failed: ' + (storageError.message || 'Unknown error.');
             submitStatus.className = 'suds_status_error';
         }
-
-        form.reset();
-        customerProjectNameInput.value = '';
-        populateDepthOptions();
-        // updateProductCodeDisplay(); // Called by populateDepthOptions -> updateQuoteAndCode
-        // updateQuoteDisplay();
     });
 
     function buildJsonPayload() { /* ... (no change from your existing function) ... */
@@ -202,4 +212,58 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Attempting to prefill Separator form with AI data:", data);
         updateQuoteAndCode();
     };
+
+    // --- Modal Prefill and Modal Mode Support ---
+    // Prefill the form from a config object (for modal editing)
+    window.prefillSeparatorFormFromConfig = function(config, options = {}) {
+        if (!config || typeof config !== 'object') return;
+        // Remove project/customer input if in modal mode
+        if (options.modalMode && customerProjectNameInput) {
+            customerProjectNameInput.closest('.suds-form-group')?.classList.add('suds-hide');
+        }
+        // Adoptable status
+        if (config.adoptable_status) {
+            const radio = form.querySelector(`input[name="adoptable_status"][value="${config.adoptable_status}"]`);
+            if (radio) {
+                radio.checked = true;
+                radio.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+        // Separator details
+        if (config.separator_details) {
+            if (config.separator_details.depth_mm && chamberDepthSelect) {
+                populateDepthOptions();
+                chamberDepthSelect.value = config.separator_details.depth_mm;
+            }
+            if (typeof config.separator_details.flow_rate_lps !== 'undefined' && flowRateInput) {
+                flowRateInput.value = config.separator_details.flow_rate_lps;
+            }
+            if (config.separator_details.pipework_diameter && pipeworkDiameterSelect) {
+                pipeworkDiameterSelect.value = config.separator_details.pipework_diameter;
+            }
+            if (config.separator_details.space_available && spaceSelect) {
+                spaceSelect.value = config.separator_details.space_available;
+            }
+            if (Array.isArray(config.separator_details.target_contaminants) && contaminantsGroup) {
+                Array.from(contaminantsGroup.querySelectorAll('input[type="checkbox"]')).forEach(cb => {
+                    cb.checked = config.separator_details.target_contaminants.includes(cb.value);
+                });
+            }
+        }
+        // Quote details
+        if (config.quote_details && typeof config.quote_details.profit_markup_percent !== 'undefined') {
+            profitMarkupInput.value = config.quote_details.profit_markup_percent;
+        }
+        updateProductCodeDisplay();
+        updateQuoteDisplay();
+    };
+
+    // Utility for modal: reset/hide project/customer input
+    window.setSeparatorModalMode = function(isModal) {
+        if (customerProjectNameInput) {
+            const group = customerProjectNameInput.closest('.suds-form-group');
+            if (group) group.style.display = isModal ? 'none' : '';
+        }
+    };
+    // --- End Modal Prefill and Modal Mode Support ---
 });
