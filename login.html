@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuDS Enviro - Login</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--suds-bg-light);
+            padding: 20px;
+            padding-top: 0; /* Remove padding-top from body as it's a full-page form */
+        }
+        .login-container {
+            background-color: #fff;
+            padding: 40px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 450px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .login-container h1 {
+            color: var(--suds-blue);
+            margin-bottom: 25px;
+            font-size: 2em;
+        }
+        .login-container .logo {
+            max-width: 100px;
+            margin-bottom: 20px;
+        }
+        .suds-form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .suds-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--suds-text-dark);
+            font-size: 0.95em;
+        }
+        .suds-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--suds-border-light);
+            border-radius: 20px;
+            box-sizing: border-box;
+            font-size: 0.95em;
+            color: var(--suds-text-dark);
+            transition: all 0.2s ease;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .suds-input:focus {
+            border-color: var(--suds-blue);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(29, 128, 185, 0.3);
+        }
+        .suds-input::placeholder {
+            color: #a0aec0;
+        }
+        .suds-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 20px;
+            margin-top: 15px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 700;
+            text-align: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .suds-btn-primary {
+            background-color: var(--suds-blue);
+            color: white;
+        }
+        .suds-btn-primary:hover {
+            background-color: #186a9e;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .suds-btn-secondary {
+            background-color: #f0f0f0;
+            color: var(--suds-text-dark);
+            border: 1px solid var(--suds-border-light);
+        }
+        .suds-btn-secondary:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .suds-btn-google {
+            background-color: #db4437; /* Google Red */
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .suds-btn-google .google-icon {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            background-image: url('data:image/svg+xml;charset=utf8,%3Csvg%20width%3D%2218%22%20height%3D%2218%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cpath%20d%3D%22M9%203.48c1.69%200%202.94.72%203.62%201.31l2.4-2.39C13.86.99%2011.43%200%209%200%205.48%200%202.44%202.16%20.92%205.13l3.05%202.35C4.85%205.95%206.7%204.48%209%204.48z%22%20fill%3D%22%23EA4335%22%2F%3E%3Cpath%20d%3D%22M17.64%209.28c0-.62-.05-1.16-.15-1.74H9v3.48h4.94a4.12%204.12%200%200%201-1.7%202.68l2.94%202.21A8.77%208.77%200%200%200%2018%209.01c0-.52-.08-1-.22-1.46z%22%20fill%3D%22%234285F4%22%2F%3E%3Cpath%20d%3D%22M3.13%2013.91l2.9%202.2A8.61%208.61%200%200%200%209%2018c2.4%200%204.44-.8%205.92-2.18l-2.94-2.21c-.81.54-1.85.91-3.03.91-2.28%200-4.22-1.55-4.93-3.65L.92%205.13A8.9%208.9%200%200%200%200%209c0%201.45.35%202.83%201.03%204.09z%22%20fill%3D%22%23FBBC05%22%2F%3E%3Cpath%20d%3D%22M18%200l-2.68%202.04L12.59%204.48A8.75%208.75%200%200%200%209%203.48c-2.3%200-4.24%201.52-4.95%203.58L.92%205.13A8.9%208.9%200%200%200%200%209c0%201.45.35%202.83%201.03%204.09z%22%20fill%3D%22%2334A853%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        .suds-btn-google:hover {
+            background-color: #c03d32;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .separator {
+            margin: 20px 0;
+            text-align: center;
+            position: relative;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        .separator::before,
+        .separator::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background-color: #eee;
+        }
+        .separator::before { left: 0; }
+        .separator::after { right: 0; }
+        #auth-status {
+            margin-top: 20px;
+            font-weight: 500;
+            text-align: center;
+            padding: 12px;
+            border-radius: 6px;
+        }
+        #auth-status.success {
+            background-color: #e8f5e9;
+            color: var(--suds-green);
+            border: 1px solid var(--suds-green);
+        }
+        #auth-status.error {
+            background-color: #ffebee;
+            color: var(--suds-red);
+            border: 1px solid var(--suds-red);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <img src="assets/images/logo_main_final.svg" alt="SuDS Enviro Logo" class="logo">
+        <h1>Internal Tools Login</h1>
+
+        <form id="email-login-form">
+            <div class="suds-form-group">
+                <label for="email-input" class="suds-label">Email:</label>
+                <input type="email" id="email-input" class="suds-input" placeholder="you@sudsenviro.com" required>
+            </div>
+            <div class="suds-form-group">
+                <label for="password-input" class="suds-label">Password:</label>
+                <input type="password" id="password-input" class="suds-input" placeholder="••••••••" required>
+            </div>
+            <button type="submit" id="login-btn" class="suds-btn suds-btn-primary">Login</button>
+            <button type="button" id="signup-btn" class="suds-btn suds-btn-secondary">Register New Account</button>
+        </form>
+
+        <div class="separator">OR</div>
+
+        <button type="button" id="google-login-btn" class="suds-btn suds-btn-google">
+            <span class="google-icon"></span>
+            Sign in with Google
+        </button>
+
+        <div id="auth-status"></div>
+    </div>
+
+    <!-- Firebase Initialization Script -->
+    <script type="module" src="js/firebase-init.js"></script>
+    <!-- Login Page Specific Script -->
+    <script type="module" src="js/login.js"></script>
+</body>
+</html>
