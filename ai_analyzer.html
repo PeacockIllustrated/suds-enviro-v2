@@ -146,8 +146,13 @@
         <ul class="nav-links" id="navLinks">
             <li><a href="index.html">Tools Hub</a></li>
             <li><a href="planner.html">Drainage Planner</a></li>
-            <li><a href="all_configs.html" class="active">Saved Configurations</a></li>
+            <li><a href="all_configs.html">Saved Configurations</a></li>
             <li><a href="catchpit.html">Catchpit Config</a></li>
+            <li><a href="orifice.html">Orifice Config</a></li>
+            <li><a href="universal_chamber.html">Chamber Config</a></li>
+            <li><a href="separator.html">Separator Config</a></li>
+            <li><a href="ai_analyzer.html" class="active">AI Schedule Analyzer</a></li> <!-- NEW LINK, set active -->
+            <!-- The logout button will be dynamically added here by main.js -->
         </ul>
     </nav>
     <div class="container" style="margin-top: 40px;">
@@ -172,7 +177,8 @@
             </div>
         </div>
     </div>
-    <script src="js/manhole_upload.js"></script>
-    <script src="js/main.js" defer></script>
+    <script type="module" src="js/firebase-init.js"></script>
+    <script type="module" src="js/manhole_upload.js"></script> <!-- Changed to type="module" -->
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
