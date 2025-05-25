@@ -142,6 +142,8 @@
         <li><a href="orifice.html">Orifice Config</a></li>
         <li><a href="universal_chamber.html" class="active">Chamber Config</a></li>
         <li><a href="separator.html">Separator Config</a></li>
+        <li><a href="ai_analyzer.html">AI Schedule Analyzer</a></li> <!-- NEW LINK -->
+        <!-- The logout button will be dynamically added here by main.js -->
     </ul>
 </nav>
 
@@ -220,11 +222,12 @@
                     <div id="shopping_list_sell_price"> <span id="sell_price_label">Sell Price (inc. Markup):</span> <span id="sell_price_value">£0.00</span> </div>
                 </div>
             </details>
-        <button type="submit" class="suds-submit-btn">Submit Chamber Configuration</button>
-        <div id="suds_submit_status"></div>
-    </form>
+            <button type="submit" class="suds-submit-btn">Submit Chamber Configuration</button>
+            <div id="suds_submit_status"></div>
+        </form>
 
-    <script src="js/universal_chamber.js" defer></script>
-    <script src="js/main.js" defer></script>
+    <script type="module" src="js/firebase-init.js"></script>
+    <script type="module" src="js/universal_chamber.js"></script> <!-- Changed to type="module" -->
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
