@@ -1,6 +1,9 @@
 // js/orifice.js
+import { auth, db } from './firebase-init.js';
+import { collection, doc, setDoc } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+
 document.addEventListener('DOMContentLoaded', function() {
-    const pricingRules = { /* ... (your existing pricingRules) ... */
+    const pricingRules = {
         base: 70.00, adoptable_status: {'adoptable': 60.00, 'non_adoptable': 0}, depth_base: 80.00,
         depth_per_150mm_step: 15.00, diameter: {'315mm': 0, '450mm': 50.00, '600mm': 110.00, '1050mm': 280.00},
         pipe_size_connection: { '110mm': 10.00, '160mm': 15.00, '225mm': 25.00 },
@@ -14,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const costPriceValueSpan = document.getElementById('cost_price_value');
     const sellPriceValueSpan = document.getElementById('sell_price_value');
     const profitMarkupInput = document.getElementById('profit_markup_percent');
-    const customerProjectNameInput = document.getElementById('customer_project_name'); // New input
+    const customerProjectNameInput = document.getElementById('customer_project_name');
 
     const chamberDepthSelect = document.getElementById('ofc_chamber_depth');
     const chamberDiameterSelect = document.getElementById('ofc_chamber_diameter');
@@ -25,12 +28,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const orificeDiameterInput = document.getElementById('ofc_orifice_diameter');
     const bypassGroup = document.getElementById('bypass_group');
 
-    const projectDataStorageKey = 'sudsUserProjectsData'; // New localStorage key
+    const USERS_COLLECTION = 'users';
+    const PROJECTS_SUBCOLLECTION = 'projects';
+    const CONFIGURATIONS_SUBCOLLECTION = 'configurations';
     const DEFAULT_PROJECT_NAME = "_DEFAULT_PROJECT_";
 
-    // --- Helper Functions ---
-    function formatCurrency(value) { /* ... (no change) ... */ return `£${value.toFixed(2)}`; }
-    function populateDepthOptions() { /* ... (no change from your existing function, ensure it calls updateQuoteAndCode) ... */
+    let currentUser = null; // To store the authenticated user
+
+    // --- Firebase Auth State Listener ---
+    auth.onAuthStateChanged(user => {
+        currentUser = user;
+        if (currentUser) {
+            console.log("Orifice Configurator: User is logged in.", currentUser.uid);
+            form.querySelectorAll('input, select, button').forEach(el => el.disabled = false);
+            submitStatus.textContent = 'Ready to save configuration.';
+            submitStatus.className = '';
+        } else {
+            console.log("Orifice Configurator: User is NOT logged in. Disabling form.");
+            form.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
+            submitStatus.textContent = 'Please log in to use the configurator.';
+            submitStatus.className = 'suds_status_error';
+            form.reset();
+            populateDepthOptions();
+        }
+    });
+
+    function formatCurrency(value) { return `£${value.toFixed(2)}`; }
+    function populateDepthOptions() {
         const selectedAdoptable = document.querySelector('input[name="adoptable_status"]:checked');
         const adoptableValue = selectedAdoptable?.value;
         const currentDepthValue = chamberDepthSelect.value;
@@ -46,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateQuoteAndCode();
     }
 
-    function calculateQuote() { /* ... (no change from your existing function) ... */
+    function calculateQuote() {
         let totalCost = 0; const items = []; const formData = new FormData(form);
         totalCost += pricingRules.base; items.push({ description: "Orifice Chamber Base", cost: pricingRules.base });
         const adoptableStatus = formData.get('adoptable_status'); if (adoptableStatus && pricingRules.adoptable_status[adoptableStatus]) { const c = pricingRules.adoptable_status[adoptableStatus]; if (c > 0) items.push({ description: `Status: ${adoptableStatus.charAt(0).toUpperCase() + adoptableStatus.slice(1)}`, cost: c }); totalCost += c; }
@@ -66,13 +90,13 @@ document.addEventListener('DOMContentLoaded', function() {
         return { total: totalCost, items: items };
     }
 
-    function updateQuoteDisplay() { /* ... (no change from your existing function) ... */
+    function updateQuoteDisplay() {
         const quote = calculateQuote(); const costPrice = quote.total; const markupPercent = parseFloat(profitMarkupInput.value) || 0; const sellPrice = costPrice * (1 + markupPercent / 100);
         shoppingListItemsUl.innerHTML = ''; if (quote.items.length > 0) { quote.items.forEach(item => { const li = document.createElement('li'); li.innerHTML = `<span class="item-description">${item.description}</span><span class="item-cost">${formatCurrency(item.cost)}</span>`; shoppingListItemsUl.appendChild(li); }); } else { shoppingListItemsUl.innerHTML = '<li>Select options to see quote...</li>'; }
         costPriceValueSpan.textContent = formatCurrency(costPrice); sellPriceValueSpan.textContent = formatCurrency(sellPrice);
     }
 
-    function updateProductCodeDisplay() { /* ... (no change from your existing function) ... */
+    function updateProductCodeDisplay() {
         const adoptableSelected = form.querySelector('input[name="adoptable_status"]:checked');
         const adoptableCode = adoptableSelected ? (adoptableSelected.value === 'adoptable' ? 'AD' : 'NA') : 'ADSTAT';
         const depth = chamberDepthSelect.value || 'DEPTH';
@@ -88,37 +112,43 @@ document.addEventListener('DOMContentLoaded', function() {
         productCodeDisplay.textContent = `OFC-${diameter}-${depth}-${flow}-${head}-${adoptableCode}${bypassCode}`;
     }
 
-    function updateQuoteAndCode() { /* ... (no change) ... */
+    function updateQuoteAndCode() {
         updateProductCodeDisplay();
         updateQuoteDisplay();
     }
 
-    const elementsTriggeringUpdates = [ /* ... (no change) ... */
+    const elementsTriggeringUpdates = [
         chamberDepthSelect, chamberDiameterSelect, adoptableStatusGroup, pipeworkSizeSelect,
         targetFlowInput, headHeightInput, orificeDiameterInput, profitMarkupInput, bypassGroup
     ];
-    elementsTriggeringUpdates.forEach(el => { /* ... (no change) ... */
+    elementsTriggeringUpdates.forEach(el => {
         if(el) {
             el.addEventListener('change', updateQuoteAndCode);
             if (el.type === 'number' || el.type === 'text') { el.addEventListener('keyup', updateQuoteAndCode); el.addEventListener('input', updateQuoteAndCode); }
         }
     });
-    if (adoptableStatusGroup) { /* ... (no change) ... */
+    if (adoptableStatusGroup) {
         Array.from(adoptableStatusGroup.querySelectorAll('input[type="radio"]')).forEach(radio => {
            radio.addEventListener('change', () => { populateDepthOptions(); });
        });
     }
-    if (bypassGroup) { /* ... (no change) ... */
+    if (bypassGroup) {
         Array.from(bypassGroup.querySelectorAll('input[type="radio"]')).forEach(radio => {
            radio.addEventListener('change', updateQuoteAndCode);
        });
     }
 
-    populateDepthOptions(); // Initial call
+    populateDepthOptions();
 
-    form.addEventListener('submit', function(event) {
+    form.addEventListener('submit', async function(event) {
         event.preventDefault();
-        // ... (validation logic remains the same) ...
+
+        if (!currentUser) {
+            submitStatus.textContent = 'Error: You must be logged in to save configurations.';
+            submitStatus.className = 'suds_status_error';
+            return;
+        }
+
         let isValid = true;
         form.querySelectorAll('.suds-input, .suds-select').forEach(el => el.style.borderColor = '');
         if(adoptableStatusGroup) adoptableStatusGroup.style.outline = 'none';
@@ -136,63 +166,60 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } return;
         }
-        // --- END Validation ---
 
         const payload = buildJsonPayload();
         const projectName = customerProjectNameInput.value.trim() || DEFAULT_PROJECT_NAME;
 
-        // Check for prefillId in URL
         const urlParams = new URLSearchParams(window.location.search);
         const prefillId = urlParams.get('prefillId');
 
         try {
-            let allProjects = {};
-            const existingProjectsRaw = localStorage.getItem(projectDataStorageKey);
-            if (existingProjectsRaw) {
-                try {
-                    allProjects = JSON.parse(existingProjectsRaw);
-                    if (typeof allProjects !== 'object' || allProjects === null) allProjects = {};
-                } catch (e) {
-                    allProjects = {};
-                }
-            }
-            if (!allProjects[projectName]) {
-                allProjects[projectName] = [];
+            const userProjectsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
+            const projectConfigsCollectionRef = collection(userProjectsCollectionRef, projectName, CONFIGURATIONS_SUBCOLLECTION);
+
+            let configDocRef;
+            if (prefillId) {
+                configDocRef = doc(projectConfigsCollectionRef, prefillId);
+                payload.firestoreId = prefillId;
+                payload.savedId = prefillId;
+                payload.source = urlParams.get('source') || payload.source;
+                payload.configured = true;
+            } else {
+                configDocRef = doc(projectConfigsCollectionRef);
+                payload.firestoreId = configDocRef.id;
+                payload.savedId = configDocRef.id;
             }
 
-            // If prefillId is present, replace the matching config
-            let replaced = false;
-            if (prefillId) {
-                const idx = allProjects[projectName].findIndex(cfg => cfg.savedId === prefillId);
-                if (idx !== -1) {
-                    // Preserve the source tag and any other visual tags
-                    payload.source = allProjects[projectName][idx].source || undefined;
-                    payload.savedId = prefillId;
-                    payload.savedTimestamp = new Date().toISOString();
-                    allProjects[projectName][idx] = payload;
-                    replaced = true;
-                }
-            }
-            if (!replaced) {
-                payload.savedId = `suds-ofc-${Date.now()}`;
-                payload.savedTimestamp = new Date().toISOString();
-                allProjects[projectName].push(payload);
-            }
-            localStorage.setItem(projectDataStorageKey, JSON.stringify(allProjects));
-            submitStatus.textContent = replaced ? 'Configuration updated and replaced original manhole-uploaded component.' : `Orifice configuration saved to project: ${projectName}!`;
+            payload.savedTimestamp = new Date().toISOString();
+
+            await setDoc(configDocRef, payload);
+
+            submitStatus.textContent = `Orifice configuration saved to project "${projectName}"!`;
             submitStatus.className = 'suds_status_success';
             form.reset();
             customerProjectNameInput.value = '';
             populateDepthOptions();
             updateProductCodeDisplay();
             updateQuoteDisplay();
-        } catch (storageError) {
-            submitStatus.textContent = 'Saving to local storage failed: ' + (storageError.message || 'Unknown error.');
+
+            if (prefillId) {
+                 const newUrl = new URL(window.location.href);
+                 newUrl.searchParams.delete('prefillId');
+                 newUrl.searchParams.delete('projectName');
+                 newUrl.searchParams.delete('source');
+                 window.history.replaceState({}, document.title, newUrl.pathname);
+            }
+
+        } catch (firebaseError) {
+            console.error("Error saving configuration to Firestore:", firebaseError);
+            submitStatus.textContent = 'Saving configuration failed: ' + (firebaseError.message || 'Unknown error.');
             submitStatus.className = 'suds_status_error';
         }
     });
 
-    function buildJsonPayload() { /* ... (no change from your existing function) ... */
+    window.buildOrificeJsonPayload = buildJsonPayload;
+
+    function buildJsonPayload() {
         const formData = new FormData(form); const quote = calculateQuote(); const costPrice = quote.total; const markupPercent = parseFloat(profitMarkupInput.value) || 0; const sellPrice = costPrice * (1 + markupPercent / 100);
         const derivedProductName = `OFC ${formData.get('ofc_target_flow') || 'N/A'}LPS`;
         const payload = {
@@ -207,20 +234,20 @@ document.addEventListener('DOMContentLoaded', function() {
         return payload;
     }
 
-    window.prefillFormFromAIScheduleData = function(data) { /* ... (no change - still a placeholder) ... */
-        console.log("Attempting to prefill Orifice form with AI data:", data);
-        updateQuoteAndCode();
-    };
-
-    // --- Modal Prefill and Modal Mode Support ---
-    // Prefill the form from a config object (for modal editing)
+    // Prefill the form from a config object (for modal editing or AI prefill)
     window.prefillOrificeFormFromConfig = function(config, options = {}) {
-        if (!config || typeof config !== 'object') return;
-        // Remove project/customer input if in modal mode
+        form.reset();
+        submitStatus.textContent = '';
+        form.querySelectorAll('.suds-input, .suds-select').forEach(el => el.style.borderColor = '');
+        if(adoptableStatusGroup) adoptableStatusGroup.style.outline = 'none';
+
         if (options.modalMode && customerProjectNameInput) {
             customerProjectNameInput.closest('.suds-form-group')?.classList.add('suds-hide');
         }
-        // Adoptable status
+        if (options.prefillProjectName && customerProjectNameInput) {
+            customerProjectNameInput.value = options.prefillProjectName;
+        }
+
         if (config.adoptable_status) {
             const radio = form.querySelector(`input[name="adoptable_status"][value="${config.adoptable_status}"]`);
             if (radio) {
@@ -228,7 +255,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 radio.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
-        // Chamber details
         if (config.chamber_details) {
             if (config.chamber_details.chamber_depth_mm && chamberDepthSelect) {
                 populateDepthOptions();
@@ -241,7 +267,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 pipeworkSizeSelect.value = config.chamber_details.pipework_size;
             }
         }
-        // Flow control params
         if (config.flow_control_params) {
             if (typeof config.flow_control_params.target_flow_lps !== 'undefined' && targetFlowInput) {
                 targetFlowInput.value = config.flow_control_params.target_flow_lps;
@@ -258,20 +283,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (radio) radio.checked = true;
             }
         }
-        // Quote details
         if (config.quote_details && typeof config.quote_details.profit_markup_percent !== 'undefined') {
             profitMarkupInput.value = config.quote_details.profit_markup_percent;
         }
-        updateProductCodeDisplay();
-        updateQuoteDisplay();
-    };
+        updateQuoteAndCode();
 
-    // Utility for modal: reset/hide project/customer input
-    window.setOrificeModalMode = function(isModal) {
-        if (customerProjectNameInput) {
-            const group = customerProjectNameInput.closest('.suds-form-group');
-            if (group) group.style.display = isModal ? 'none' : '';
+        if (config.source === 'manhole_upload' && config.firestoreId && !options.modalMode) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('prefillId', config.firestoreId);
+            newUrl.searchParams.set('projectName', options.prefillProjectName || DEFAULT_PROJECT_NAME);
+            newUrl.searchParams.set('source', 'manhole_upload');
+            window.history.replaceState({}, document.title, newUrl.toString());
+            submitStatus.textContent = 'Prefilled from Manhole Schedule. Submit to update this entry.';
+            submitStatus.className = 'suds_status_info';
         }
     };
-    // --- End Modal Prefill and Modal Mode Support ---
 });
