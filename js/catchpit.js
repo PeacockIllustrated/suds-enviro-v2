@@ -1,6 +1,9 @@
 // js/catchpit.js
+import { auth, db } from './firebase-init.js';
+import { collection, doc, setDoc } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+
 document.addEventListener('DOMContentLoaded', function() {
-    const pricingRules = { /* ... (your existing pricingRules) ... */
+    const pricingRules = {
         base: 40.00,
         type_adder: { 'Standard': 0, 'Bucket': 30.00, 'Dual Filter': 75.00 },
         adoptable_status: {'adoptable': 50.00, 'non_adoptable': 0},
@@ -18,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const costPriceValueSpan = document.getElementById('cost_price_value');
     const sellPriceValueSpan = document.getElementById('sell_price_value');
     const profitMarkupInput = document.getElementById('profit_markup_percent');
-    const customerProjectNameInput = document.getElementById('customer_project_name'); // New input
+    const customerProjectNameInput = document.getElementById('customer_project_name');
 
     const catchpitTypeSelect = document.getElementById('cp_type');
     const chamberDepthSelect = document.getElementById('cp_depth');
@@ -27,41 +30,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const targetPollutantSelect = document.getElementById('cp_target_pollutant');
     const removableBucketGroup = document.getElementById('removable_bucket_group');
 
-    const projectDataStorageKey = 'sudsUserProjectsData'; // New localStorage key
+    const USERS_COLLECTION = 'users';
+    const PROJECTS_SUBCOLLECTION = 'projects';
+    const CONFIGURATIONS_SUBCOLLECTION = 'configurations';
     const DEFAULT_PROJECT_NAME = "_DEFAULT_PROJECT_";
 
-    // --- Migration for old data (run once) ---
-    function migrateOldConfigs() {
-        const oldConfigKey = 'sudsSavedConfigs';
-        const oldDataRaw = localStorage.getItem(oldConfigKey);
-        const newDataRaw = localStorage.getItem(projectDataStorageKey);
+    let currentUser = null; // To store the authenticated user
 
-        if (oldDataRaw && !newDataRaw) { // Only migrate if old exists and new doesn't
-            try {
-                const oldConfigs = JSON.parse(oldDataRaw);
-                if (Array.isArray(oldConfigs) && oldConfigs.length > 0) {
-                    const migratedProjects = {
-                        "_MIGRATED_DEFAULT_": oldConfigs
-                    };
-                    localStorage.setItem(projectDataStorageKey, JSON.stringify(migratedProjects));
-                    // localStorage.removeItem(oldConfigKey); // Optionally remove old key after successful migration
-                    console.log("Old configurations migrated to new project structure.");
-                    alert("Previously saved configurations have been moved to a default migrated project category.");
-                } else if (Array.isArray(oldConfigs) && oldConfigs.length === 0) {
-                    // localStorage.removeItem(oldConfigKey); // Remove empty old array
-                }
-            } catch (e) {
-                console.error("Error migrating old configurations:", e);
-            }
+    // --- Firebase Auth State Listener ---
+    auth.onAuthStateChanged(user => {
+        currentUser = user;
+        if (currentUser) {
+            console.log("Catchpit Configurator: User is logged in.", currentUser.uid);
+            form.querySelectorAll('input, select, button').forEach(el => el.disabled = false);
+            submitStatus.textContent = 'Ready to save configuration.';
+            submitStatus.className = '';
+        } else {
+            console.log("Catchpit Configurator: User is NOT logged in. Disabling form.");
+            form.querySelectorAll('input, select, button').forEach(el => el.disabled = true);
+            submitStatus.textContent = 'Please log in to use the configurator.';
+            submitStatus.className = 'suds_status_error';
+            // Also reset form and clear any pre-filled data that might be visible if not authenticated
+            form.reset();
+            populateDepthOptions(); // Reset depth options after reset
         }
-    }
-    migrateOldConfigs(); // Call migration check on script load
-    // --- End Migration ---
-
+    });
 
     function formatCurrency(value) { return `£${value.toFixed(2)}`; }
 
-    function populateDepthOptions() { /* ... (no change from your existing function) ... */
+    function populateDepthOptions() {
         const selectedAdoptable = document.querySelector('input[name="adoptable_status"]:checked');
         const adoptableValue = selectedAdoptable?.value;
         const currentDepthValue = chamberDepthSelect.value;
@@ -99,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateQuoteDisplay();
     }
 
-    function calculateQuote() { /* ... (no change from your existing function) ... */
+    function calculateQuote() {
         let totalCost = 0;
         const items = [];
         const formData = new FormData(form);
@@ -145,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return { total: totalCost, items: items };
     }
 
-    function updateQuoteDisplay() { /* ... (no change from your existing function) ... */
+    function updateQuoteDisplay() {
         const quote = calculateQuote();
         const costPrice = quote.total;
         const markupPercent = parseFloat(profitMarkupInput.value) || 0;
@@ -164,11 +161,11 @@ document.addEventListener('DOMContentLoaded', function() {
         sellPriceValueSpan.textContent = formatCurrency(sellPrice);
     }
 
-    function getShortCode(value, mapping) { /* ... (no change) ... */
+    function getShortCode(value, mapping) {
         return mapping[value] || value.substring(0, 3).toUpperCase();
     }
 
-    function updateProductCodeDisplay() { /* ... (no change from your existing function) ... */
+    function updateProductCodeDisplay() {
         const name = "SECP";
         const typeCodeMapping = { "Standard": "STD", "Bucket": "BKT", "Dual Filter": "DFL" };
         const pollutantCodeMapping = { "Silt": "SIL", "Leaves": "LEA", "Oils": "OIL", "All": "ALL" };
@@ -187,18 +184,17 @@ document.addEventListener('DOMContentLoaded', function() {
         productCodeDisplay.textContent = `${name}-${type}-${pollutant}-${pipeDia}-${depth}-${bucketCode}-${adoptableCode}`;
     }
 
-
-    function updateQuoteAndCode() { /* ... (no change) ... */
+    function updateQuoteAndCode() {
         updateProductCodeDisplay();
         updateQuoteDisplay();
     }
 
-    const elementsTriggeringUpdates = [ /* ... (no change) ... */
+    const elementsTriggeringUpdates = [
         catchpitTypeSelect, chamberDepthSelect, adoptableStatusGroup,
         pipeworkDiameterSelect, targetPollutantSelect, removableBucketGroup,
         profitMarkupInput
     ];
-    elementsTriggeringUpdates.forEach(element => { /* ... (no change) ... */
+    elementsTriggeringUpdates.forEach(element => {
         if (element) {
             element.addEventListener('change', updateQuoteAndCode);
             if (element.type === 'number' || element.type === 'text') {
@@ -207,24 +203,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-    if (adoptableStatusGroup) { /* ... (no change) ... */
+    if (adoptableStatusGroup) {
         Array.from(adoptableStatusGroup.querySelectorAll('input[type="radio"]')).forEach(radio => {
             radio.addEventListener('change', () => {
                 populateDepthOptions();
             });
         });
     }
-    if (removableBucketGroup) { /* ... (no change) ... */
+    if (removableBucketGroup) {
         Array.from(removableBucketGroup.querySelectorAll('input[type="radio"]')).forEach(radio => {
             radio.addEventListener('change', updateQuoteAndCode);
         });
     }
 
-    populateDepthOptions();
+    populateDepthOptions(); // Initial call
 
-    form.addEventListener('submit', function(event) {
+    form.addEventListener('submit', async function(event) {
         event.preventDefault();
-        // ... (validation logic remains the same) ...
+
+        if (!currentUser) {
+            submitStatus.textContent = 'Error: You must be logged in to save configurations.';
+            submitStatus.className = 'suds_status_error';
+            return;
+        }
+
         let isValid = true;
         form.querySelectorAll('.suds-input, .suds-select').forEach(el => el.style.borderColor = '');
         if (adoptableStatusGroup) adoptableStatusGroup.style.outline = 'none';
@@ -256,63 +258,67 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return;
         }
-        // --- END Validation ---
 
-        const payload = buildJsonPayload(); // payload already contains product data
+        const payload = buildJsonPayload();
         const projectName = customerProjectNameInput.value.trim() || DEFAULT_PROJECT_NAME;
 
-        // Check for prefillId in URL
+        // Check for prefillId in URL parameters (for editing manhole-uploaded items)
         const urlParams = new URLSearchParams(window.location.search);
         const prefillId = urlParams.get('prefillId');
 
         try {
-            let allProjects = {};
-            const existingProjectsRaw = localStorage.getItem(projectDataStorageKey);
-            if (existingProjectsRaw) {
-                try {
-                    allProjects = JSON.parse(existingProjectsRaw);
-                    if (typeof allProjects !== 'object' || allProjects === null) allProjects = {};
-                } catch (e) {
-                    allProjects = {};
-                }
-            }
-            if (!allProjects[projectName]) {
-                allProjects[projectName] = [];
+            // Reference to the user's projects collection
+            const userProjectsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
+            // Reference to the specific project's configurations subcollection
+            const projectConfigsCollectionRef = collection(userProjectsCollectionRef, projectName, CONFIGURATIONS_SUBCOLLECTION);
+
+            let configDocRef;
+            if (prefillId) {
+                // If prefillId is present, update the existing document
+                configDocRef = doc(projectConfigsCollectionRef, prefillId);
+                payload.firestoreId = prefillId; // Ensure payload includes the Firestore ID
+                payload.savedId = prefillId; // Keep savedId consistent with firestoreId
+                payload.source = urlParams.get('source') || payload.source; // Preserve source tag if it was provided via URL
+                payload.configured = true; // Mark as configured
+            } else {
+                // For new configurations, let Firestore generate a unique ID
+                configDocRef = doc(projectConfigsCollectionRef);
+                payload.firestoreId = configDocRef.id; // Store Firestore document ID in payload
+                payload.savedId = configDocRef.id; // Also use as savedId for consistency
             }
 
-            // If prefillId is present, replace the matching config
-            let replaced = false;
-            if (prefillId) {
-                const idx = allProjects[projectName].findIndex(cfg => cfg.savedId === prefillId);
-                if (idx !== -1) {
-                    // Preserve the source tag and any other visual tags
-                    payload.source = allProjects[projectName][idx].source || undefined;
-                    payload.savedId = prefillId;
-                    payload.savedTimestamp = new Date().toISOString();
-                    allProjects[projectName][idx] = payload;
-                    replaced = true;
-                }
-            }
-            if (!replaced) {
-                payload.savedId = `suds-cp-${Date.now()}`;
-                payload.savedTimestamp = new Date().toISOString();
-                allProjects[projectName].push(payload);
-            }
-            localStorage.setItem(projectDataStorageKey, JSON.stringify(allProjects));
-            submitStatus.textContent = replaced ? 'Configuration updated and replaced original manhole-uploaded component.' : `Catchpit configuration saved to project: ${projectName}!`;
+            payload.savedTimestamp = new Date().toISOString(); // Always update timestamp on save
+
+            await setDoc(configDocRef, payload); // Save/update the document in Firestore
+
+            submitStatus.textContent = `Catchpit configuration saved to project "${projectName}"!`;
             submitStatus.className = 'suds_status_success';
             form.reset();
             customerProjectNameInput.value = '';
             populateDepthOptions();
             updateProductCodeDisplay();
             updateQuoteDisplay();
-        } catch (storageError) {
-            submitStatus.textContent = 'Saving to local storage failed: ' + (storageError.message || 'Unknown error.');
+
+            // Clear prefillId from URL after successful save of a prefilled item
+            if (prefillId) {
+                 const newUrl = new URL(window.location.href);
+                 newUrl.searchParams.delete('prefillId');
+                 newUrl.searchParams.delete('projectName'); // Also remove project name from URL if used for prefill
+                 newUrl.searchParams.delete('source');
+                 window.history.replaceState({}, document.title, newUrl.pathname);
+            }
+
+        } catch (firebaseError) {
+            console.error("Error saving configuration to Firestore:", firebaseError);
+            submitStatus.textContent = 'Saving configuration failed: ' + (firebaseError.message || 'Unknown error.');
             submitStatus.className = 'suds_status_error';
         }
     });
 
-    function buildJsonPayload() { /* ... (no change from your existing function) ... */
+    // Export the payload builder for use in modals (e.g., in all_configs.js)
+    window.buildCatchpitJsonPayload = buildJsonPayload;
+
+    function buildJsonPayload() {
         const formData = new FormData(form);
         const quote = calculateQuote();
         const costPrice = quote.total;
@@ -345,26 +351,31 @@ document.addEventListener('DOMContentLoaded', function() {
         return payload;
     }
 
-
-    window.prefillFormFromAIScheduleData = function(data) { /* ... (no change - still a placeholder) ... */
-        console.log("Attempting to prefill Catchpit form with AI data:", data);
-        updateQuoteAndCode();
-    };
-
-    // --- Modal Prefill and Modal Mode Support ---
-    // Prefill the form from a config object (for modal editing)
+    // Prefill the form from a config object (for modal editing or AI prefill)
     window.prefillCatchpitFormFromConfig = function(config, options = {}) {
-        // options: { modalMode: true/false }
-        if (!config || typeof config !== 'object') return;
+        // Reset form first to clear any previous selections/errors
+        form.reset();
+        submitStatus.textContent = ''; // Clear status message
+        form.querySelectorAll('.suds-input, .suds-select').forEach(el => el.style.borderColor = '');
+        if (adoptableStatusGroup) adoptableStatusGroup.style.outline = 'none';
+
         // Remove project/customer input if in modal mode
         if (options.modalMode && customerProjectNameInput) {
             customerProjectNameInput.closest('.suds-form-group')?.classList.add('suds-hide');
         }
+
+        // Apply prefill data
+        // Customer/Project Name is not prefilled in modal context
+        if (options.prefillProjectName && customerProjectNameInput) {
+            customerProjectNameInput.value = options.prefillProjectName;
+        }
+
         // Adoptable status
         if (config.adoptable_status) {
             const radio = form.querySelector(`input[name="adoptable_status"][value="${config.adoptable_status}"]`);
             if (radio) {
                 radio.checked = true;
+                // Trigger change event to populate depth options immediately
                 radio.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
@@ -374,8 +385,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 catchpitTypeSelect.value = config.catchpit_details.catchpit_type;
             }
             if (config.catchpit_details.depth_mm && chamberDepthSelect) {
-                // Ensure options are populated first
-                populateDepthOptions();
+                // Ensure options are populated first by adoptable status change, then set value
+                // Use a slight delay if necessary, but generally the change event handles it.
                 chamberDepthSelect.value = config.catchpit_details.depth_mm;
             }
             if (config.catchpit_details.pipework_diameter && pipeworkDiameterSelect) {
@@ -394,16 +405,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (config.quote_details && typeof config.quote_details.profit_markup_percent !== 'undefined') {
             profitMarkupInput.value = config.quote_details.profit_markup_percent;
         }
-        // Product code display
-        updateQuoteAndCode();
-    };
 
-    // Utility for modal: reset/hide project/customer input
-    window.setCatchpitModalMode = function(isModal) {
-        if (customerProjectNameInput) {
-            const group = customerProjectNameInput.closest('.suds-form-group');
-            if (group) group.style.display = isModal ? 'none' : '';
+        // This will update the product code and quote display based on the prefilled values
+        updateQuoteAndCode();
+
+        // If it's a prefill from manhole schedule, update URL params to enable update on submit
+        if (config.source === 'manhole_upload' && config.firestoreId && !options.modalMode) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('prefillId', config.firestoreId);
+            newUrl.searchParams.set('projectName', options.prefillProjectName || DEFAULT_PROJECT_NAME);
+            newUrl.searchParams.set('source', 'manhole_upload');
+            window.history.replaceState({}, document.title, newUrl.toString());
+            submitStatus.textContent = 'Prefilled from Manhole Schedule. Submit to update this entry.';
+            submitStatus.className = 'suds_status_info';
         }
     };
-    // --- End Modal Prefill and Modal Mode Support ---
 });
