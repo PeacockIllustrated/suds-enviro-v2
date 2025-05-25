@@ -1,4 +1,8 @@
 // js/main.js
+
+// No direct Firebase imports here yet, but making it a module
+// to be compatible with firebase-init.js
+
 document.addEventListener('DOMContentLoaded', function() {
     const mobileMenuToggle = document.getElementById('mobileMenuToggle');
     const navLinks = document.getElementById('navLinks');
