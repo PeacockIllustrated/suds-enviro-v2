@@ -184,23 +184,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const prefillId = urlParams.get('prefillId');
 
         try {
-            const userProjectsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
-            const projectConfigsCollectionRef = collection(userProjectsCollectionRef, projectName, CONFIGURATIONS_SUBCOLLECTION);
+            // Correct path for saving: users/[UID]/projects/[ProjectName]/configurations/[configId]
+            const configsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
 
             let configDocRef;
             if (prefillId) {
-                configDocRef = doc(projectConfigsCollectionRef, prefillId);
+                configDocRef = doc(configsCollectionRef, prefillId);
                 payload.firestoreId = prefillId;
                 payload.savedId = prefillId;
                 payload.source = urlParams.get('source') || payload.source;
                 payload.configured = true;
             } else {
-                configDocRef = doc(projectConfigsCollectionRef);
+                configDocRef = doc(configsCollectionRef);
                 payload.firestoreId = configDocRef.id;
                 payload.savedId = configDocRef.id;
             }
 
             payload.savedTimestamp = new Date().toISOString();
+
+            // Diagnostic log:
+            console.log("Attempting to save Separator configuration to:", configDocRef.path);
+            console.log("Payload:", JSON.stringify(payload, null, 2));
+
 
             await setDoc(configDocRef, payload);
 
