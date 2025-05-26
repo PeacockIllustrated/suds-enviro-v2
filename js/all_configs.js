@@ -82,64 +82,73 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Firestore Data Loading & UI Population ---
 
-    // Load all projects and their configurations for the current user
     async function loadUserConfigurationsFromFirestore() {
-        if (!currentUser) {
-            console.warn("loadUserConfigurationsFromFirestore called without currentUser.");
-            configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">Please log in to view configurations.</p>';
-            populateProjectSelector(); // Clear dropdown
+    if (!currentUser) {
+        console.warn("loadUserConfigurationsFromFirestore called without currentUser. Exiting.");
+        configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">Please log in to view configurations.</p>';
+        populateProjectSelector();
+        return;
+    }
+
+    console.log("--- Starting Firebase Data Load for AllConfigs ---");
+    console.log("Current User UID for load:", currentUser.uid); // IMPORTANT: Confirm this UID is correct
+
+    currentProjectsData = {}; // Reset local data store
+
+    try {
+        // STEP 1: Query for project documents
+        const projectsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
+        console.log("Querying projects from path:", projectsRef.path); // Expect: users/[UID]/projects
+
+        const projectsSnapshot = await getDocs(projectsRef); // <<< This is the critical line
+
+        console.log("projectsSnapshot.empty:", projectsSnapshot.empty); // Should be 'false' if data exists
+        console.log("Number of project documents found:", projectsSnapshot.size); // Should be > 0
+
+        if (projectsSnapshot.empty) {
+            console.log("No projects found for this user in Firestore after query. Displaying empty message.");
+            configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">No configurations saved yet. Start by configuring a product!</p>';
+            populateProjectSelector();
             return;
         }
 
-        console.log("Loading configurations for user:", currentUser.uid);
-        currentProjectsData = {}; // Reset local data store
+        // STEP 2: Iterate through each project document and get its configurations
+        for (const projectDoc of projectsSnapshot.docs) {
+            const projectName = projectDoc.id; // Project name is the document ID (e.g., "BobCo")
+            console.log("Processing project document with ID:", projectName); // Expect: BobCo
 
-        try {
-            // Get all project documents for the current user
-            // Path: users/{uid}/projects
-            const projectsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
-            const projectsSnapshot = await getDocs(projectsRef);
+            // Path: users/{uid}/projects/{projectName}/configurations
+            const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
+            console.log(`Querying configurations for project '${projectName}' from path:`, configsRef.path); // Expect: users/[UID]/projects/BobCo/configurations
 
-            if (projectsSnapshot.empty) {
-                console.log("No projects found for this user in Firestore.");
-                configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">No configurations saved yet. Start by configuring a product!</p>';
-                populateProjectSelector();
-                return;
+            const configsSnapshot = await getDocs(configsRef);
+            console.log(`Number of configurations found for project '${projectName}':`, configsSnapshot.size); // Should be > 0
+
+            const projectConfigs = [];
+            configsSnapshot.forEach(configDoc => {
+                projectConfigs.push({ ...configDoc.data(), firestoreId: configDoc.id });
+            });
+
+            if (projectConfigs.length > 0) {
+                currentProjectsData[projectName] = projectConfigs;
+                console.log(`Added ${projectConfigs.length} configs for project '${projectName}'.`);
+            } else {
+                console.log(`Project '${projectName}' found but contains no configurations. Skipping.`);
             }
-
-            // Iterate through each project document
-            for (const projectDoc of projectsSnapshot.docs) {
-                const projectName = projectDoc.id; // Project name is the document ID (e.g., "Bob Co. - Site A")
-
-                // Get all configuration documents for the current project
-                // Path: users/{uid}/projects/{projectName}/configurations
-                const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
-                const configsSnapshot = await getDocs(configsRef);
-
-                const projectConfigs = [];
-                configsSnapshot.forEach(configDoc => {
-                    // Store the Firestore document ID with the config data
-                    projectConfigs.push({ ...configDoc.data(), firestoreId: configDoc.id });
-                });
-
-                if (projectConfigs.length > 0) {
-                    currentProjectsData[projectName] = projectConfigs;
-                } else {
-                    // If a project document exists but has no configurations, we might want to delete it or just skip it
-                    // For now, we'll skip adding it to currentProjectsData if empty, so it doesn't show in dropdown.
-                    // Optionally: deleteDoc(projectDoc.ref); // To clean up empty project docs
-                    console.log(`Project '${projectName}' found but contains no configurations.`);
-                }
-            }
-
-            console.log("Loaded projects from Firestore:", currentProjectsData);
-            populateProjectSelector(); // Populate the dropdown with the loaded data
-            displayConfigurationsForSelectedProject(); // Display configs for the initially selected project
-        } catch (error) {
-            console.error("Error loading configurations from Firestore:", error);
-            configList.innerHTML = `<p style="text-align: center; color: var(--suds-red); margin: 20px 0;">Error loading configurations: ${error.message}. Please try again.</p>`;
         }
+
+        console.log("--- Finished Firebase Data Load ---");
+        console.log("Final `currentProjectsData` object:", currentProjectsData); // Check if data populated here
+
+        populateProjectSelector();
+        displayConfigurationsForSelectedProject();
+
+    } catch (error) {
+        console.error("Critical Error loading configurations from Firestore:", error); // Use 'Critical Error' to make it stand out
+        configList.innerHTML = `<p style="text-align: center; color: var(--suds-red); margin: 20px 0;">Error loading configurations: ${error.message}. Please check console for details.</p>`;
     }
+}
+
 
     // Populate the project dropdown based on fetched data
     function populateProjectSelector() {
