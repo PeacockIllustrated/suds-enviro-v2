@@ -4,12 +4,11 @@ import { auth, db } from './firebase-init.js';
 import {
     collection,
     doc,
-    getDoc, // Added for individual project config retrieval
     getDocs,
-    setDoc,
+    setDoc, // Used for updating existing docs in modals
     deleteDoc,
     query,
-    where // Not directly used in current schema but good to have for filtering
+    writeBatch // For clearing multiple documents efficiently
 } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -36,39 +35,44 @@ document.addEventListener('DOMContentLoaded', function() {
     const USERS_COLLECTION = 'users';
     const PROJECTS_SUBCOLLECTION = 'projects';
     const CONFIGURATIONS_SUBCOLLECTION = 'configurations';
-    const userApiKeyStorageKey = 'sudsUserOpenAiApiKey'; // Still localStorage for now
+    const USER_METADATA_SUBCOLLECTION = 'metadata'; // New subcollection for user-specific metadata like API key
+    const DEFAULT_PROJECT_NAME = "_DEFAULT_PROJECT_";
 
     // Module-scoped variables
-    let userProvidedApiKey = '';
-    let rawMarkdownForDownload = '';
-    let currentConfigsByProject = {}; // Object to hold configs fetched from Firestore, grouped by project
     let currentUser = null; // Will store the authenticated Firebase user object
+    let currentProjectsData = {}; // Object to hold ALL projects and their configs for the current user, fetched from Firestore
 
-    // --- API Key Management (Remains localStorage for now) ---
+    // --- API Key Management (Now in Firestore, but localStorage for backward compat during transition) ---
+    // User's OpenAI API Key will be stored in Firestore under users/[UID]/metadata/api_keys document.
+    // However, the *client-side* form still asks for it and stores it in localStorage for convenience,
+    // then uses it for the direct API call in the current setup.
+    // The ultimate secure storage would be via Cloud Functions (Phase 4), where the key never leaves the server.
+    // For now, we'll load from localStorage for client-side use.
+
     function loadApiKey() {
-        const storedKey = localStorage.getItem(userApiKeyStorageKey);
+        // This function will still load from localStorage for the immediate client-side AI generation step.
+        // In Phase 4, this will be replaced by a call to a Cloud Function to securely get the API key.
+        const storedKey = localStorage.getItem('sudsUserOpenAiApiKey');
         if (storedKey) {
-            userProvidedApiKey = storedKey;
-            if (apiKeyInput) apiKeyInput.value = storedKey;
+            apiKeyInput.value = storedKey;
         } else {
-            userProvidedApiKey = '';
-            if (apiKeyInput) apiKeyInput.value = '';
+            apiKeyInput.value = '';
         }
     }
 
     function saveUserApiKey() {
-        if (!apiKeyInput) return;
+        // This function will still save to localStorage for the immediate client-side AI generation step.
+        // In Phase 4, this will be replaced by a call to a Cloud Function to securely store the API key
+        // or to configure it server-side.
         const newKeyFromInput = apiKeyInput.value.trim();
         if (newKeyFromInput && (newKeyFromInput.startsWith('sk-') || newKeyFromInput.startsWith('sk-proj-')) && newKeyFromInput.length > 20) {
-            localStorage.setItem(userApiKeyStorageKey, newKeyFromInput);
-            userProvidedApiKey = newKeyFromInput;
-            alert('API Key saved successfully!');
+            localStorage.setItem('sudsUserOpenAiApiKey', newKeyFromInput);
+            alert('API Key saved successfully to your browser\'s local storage!');
         } else if (newKeyFromInput === "") {
-            localStorage.removeItem(userApiKeyStorageKey);
-            userProvidedApiKey = "";
-            alert('API Key cleared.');
+            localStorage.removeItem('sudsUserOpenAiApiKey');
+            alert('API Key cleared from your browser\'s local storage.');
         } else {
-            alert('Invalid API Key format or length. Please enter a valid key (e.g., starting with "sk-" or "sk-proj-").');
+            alert('Invalid OpenAI API Key format or length. Please enter a valid key (e.g., starting with "sk-" or "sk-proj-").');
         }
     }
 
@@ -76,71 +80,71 @@ document.addEventListener('DOMContentLoaded', function() {
         saveApiKeyButton.addEventListener('click', saveUserApiKey);
     }
 
-    // --- Firestore Data Management Functions ---
+    // --- Firestore Data Loading & UI Population ---
 
     // Load all projects and their configurations for the current user
     async function loadUserConfigurationsFromFirestore() {
         if (!currentUser) {
+            console.warn("loadUserConfigurationsFromFirestore called without currentUser.");
             configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">Please log in to view configurations.</p>';
             populateProjectSelector(); // Clear dropdown
             return;
         }
 
-    
-        
-       // Inside loadUserConfigurationsFromFirestore() in all_configs.js
-console.log("Starting load for user UID:", currentUser.uid);
-const projectsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
-console.log("Querying projects at path:", projectsRef.path); // Log the full collection path
+        console.log("Loading configurations for user:", currentUser.uid);
+        currentProjectsData = {}; // Reset local data store
 
-const projectsSnapshot = await getDocs(projectsRef);
+        try {
+            // Get all project documents for the current user
+            // Path: users/{uid}/projects
+            const projectsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
+            const projectsSnapshot = await getDocs(projectsRef);
 
-if (projectsSnapshot.empty) {
-    console.log("No projects found for this user after query."); // This is the log you're seeing
-    // ...
-} else {
-    console.log("Found projects. Number of project documents:", projectsSnapshot.size);
-    for (const projectDoc of projectsSnapshot.docs) {
-        const projectName = projectDoc.id;
-        console.log("Processing project:", projectName);
-        const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
-        console.log("Querying configurations for project:", configsRef.path); // Log path for configs
-        const configsSnapshot = await getDocs(configsRef);
-        console.log("Found configurations for project", projectName, ":", configsSnapshot.size);
-        // ...
-    }
-}
+            if (projectsSnapshot.empty) {
+                console.log("No projects found for this user in Firestore.");
+                configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">No configurations saved yet. Start by configuring a product!</p>';
+                populateProjectSelector();
+                return;
+            }
 
             // Iterate through each project document
             for (const projectDoc of projectsSnapshot.docs) {
-                const projectName = projectDoc.id; // Project name is the document ID
+                const projectName = projectDoc.id; // Project name is the document ID (e.g., "Bob Co. - Site A")
+
+                // Get all configuration documents for the current project
+                // Path: users/{uid}/projects/{projectName}/configurations
                 const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
                 const configsSnapshot = await getDocs(configsRef);
 
                 const projectConfigs = [];
                 configsSnapshot.forEach(configDoc => {
-                    projectConfigs.push({ ...configDoc.data(), firestoreId: configDoc.id }); // Add firestoreId for deletion
+                    // Store the Firestore document ID with the config data
+                    projectConfigs.push({ ...configDoc.data(), firestoreId: configDoc.id });
                 });
 
                 if (projectConfigs.length > 0) {
-                    currentConfigsByProject[projectName] = projectConfigs;
+                    currentProjectsData[projectName] = projectConfigs;
+                } else {
+                    // If a project document exists but has no configurations, we might want to delete it or just skip it
+                    // For now, we'll skip adding it to currentProjectsData if empty, so it doesn't show in dropdown.
+                    // Optionally: deleteDoc(projectDoc.ref); // To clean up empty project docs
+                    console.log(`Project '${projectName}' found but contains no configurations.`);
                 }
             }
-            console.log("Loaded projects:", currentConfigsByProject);
-            populateProjectSelector();
-            displayConfigurationsForSelectedProject(); // Display for the currently selected project
+
+            console.log("Loaded projects from Firestore:", currentProjectsData);
+            populateProjectSelector(); // Populate the dropdown with the loaded data
+            displayConfigurationsForSelectedProject(); // Display configs for the initially selected project
         } catch (error) {
             console.error("Error loading configurations from Firestore:", error);
-            configList.innerHTML = '<p style="text-align: center; color: var(--suds-red); margin: 20px 0;">Error loading configurations. Please try again.</p>';
+            configList.innerHTML = `<p style="text-align: center; color: var(--suds-red); margin: 20px 0;">Error loading configurations: ${error.message}. Please try again.</p>`;
         }
     }
 
-    
-    
     // Populate the project dropdown based on fetched data
     function populateProjectSelector() {
         projectSelectDropdown.innerHTML = '<option value="">-- Select a Project --</option>';
-        const projectNames = Object.keys(currentConfigsByProject);
+        const projectNames = Object.keys(currentProjectsData);
 
         if (projectNames.length === 0) {
             const option = document.createElement('option');
@@ -148,36 +152,44 @@ if (projectsSnapshot.empty) {
             option.textContent = "No projects found";
             option.disabled = true;
             projectSelectDropdown.appendChild(option);
+            // Also disable action buttons if no projects
+            if (exportProjectButton) exportProjectButton.disabled = true;
+            if (clearProjectButton) clearProjectButton.disabled = true;
+            if (generateProposalButton) generateProposalButton.disabled = true;
             return;
         }
 
+        // Sort project names, with default project always first
         projectNames.sort((a, b) => {
-            if (a === "_DEFAULT_PROJECT_") return -1; // Default project always first
-            if (b === "_DEFAULT_PROJECT_") return 1;
+            if (a === DEFAULT_PROJECT_NAME) return -1;
+            if (b === DEFAULT_PROJECT_NAME) return 1;
             return a.localeCompare(b);
         }).forEach(name => {
             const option = document.createElement('option');
             option.value = name;
-            option.textContent = name === "_DEFAULT_PROJECT_" ? "Default Project (No Name Specified)" : name;
+            option.textContent = name === DEFAULT_PROJECT_NAME ? "Default Project (No Name Specified)" : name;
             projectSelectDropdown.appendChild(option);
         });
 
-        // Try to select the first project if none is selected
+        // Try to select the first project if none is currently selected
         if (projectSelectDropdown.value === "" && projectNames.length > 0) {
-             projectSelectDropdown.value = projectNames[0]; // Select the first one, or default
+             projectSelectDropdown.value = projectNames[0];
         }
     }
 
     // Display configurations for the currently selected project in the UI
     function displayConfigurationsForSelectedProject() {
         const selectedProjectName = projectSelectDropdown.value;
-        configList.innerHTML = '';
+        configList.innerHTML = ''; // Clear existing list items
+
+        // Reset proposal related UI
         if (copyMarkdownButton) copyMarkdownButton.style.display = 'none';
         if (downloadProposalButton) downloadProposalButton.style.display = 'none';
         if (proposalStatusDiv) proposalStatusDiv.textContent = '';
         if (proposalOutputDiv) proposalOutputDiv.innerHTML = 'Proposal will appear here once generated...';
 
-        if (!selectedProjectName || !currentConfigsByProject[selectedProjectName]) {
+        // Handle no project selected or no data for selected project
+        if (!selectedProjectName || !currentProjectsData[selectedProjectName]) {
             configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">Please select a project to view its configurations.</p>';
             if (exportProjectButton) exportProjectButton.disabled = true;
             if (clearProjectButton) clearProjectButton.disabled = true;
@@ -187,24 +199,24 @@ if (projectsSnapshot.empty) {
             return;
         }
 
-        const configs = currentConfigsByProject[selectedProjectName];
+        const configs = currentProjectsData[selectedProjectName];
+
+        // Enable/disable buttons based on whether there are configs in the selected project
+        if (exportProjectButton) exportProjectButton.disabled = false;
+        if (clearProjectButton) clearProjectButton.disabled = false;
+        if (generateProposalButton) generateProposalButton.disabled = (configs.length === 0);
 
         if (configs.length === 0) {
             configList.innerHTML = `<p style="text-align: center; color: #666; margin: 20px 0;">No configurations saved for project: ${selectedProjectName}.</p>`;
-            if (exportProjectButton) exportProjectButton.disabled = false;
-            if (clearProjectButton) clearProjectButton.disabled = false;
-            if (generateProposalButton) generateProposalButton.disabled = true; // Disable if no configs
         } else {
-            if (exportProjectButton) exportProjectButton.disabled = false;
-            if (clearProjectButton) clearProjectButton.disabled = false;
-            if (generateProposalButton) generateProposalButton.disabled = false;
+            // Sort configurations by timestamp for consistent display (most recent first)
+            configs.sort((a, b) => new Date(b.savedTimestamp).getTime() - new Date(a.savedTimestamp).getTime());
 
-            configs.forEach((config, index) => { // Index here is just for display iteration, not firestore index
+            configs.forEach((config) => {
                 const listItem = document.createElement('li');
                 listItem.className = 'config-item';
                 listItem.dataset.projectName = selectedProjectName;
-                listItem.dataset.firestoreId = config.firestoreId; // Store Firestore document ID
-                listItem.dataset.arrayIndex = index; // Keep array index for local reference if needed
+                listItem.dataset.firestoreId = config.firestoreId; // Store Firestore document ID for operations
 
                 const detailsDiv = document.createElement('div');
                 detailsDiv.className = 'config-item-details';
@@ -241,13 +253,12 @@ if (projectsSnapshot.empty) {
                 actionsDiv.appendChild(viewDetailsButton);
 
                 // --- Add Configure/Edit button for manhole-uploaded products ---
-                if (config.source === 'manhole_upload') {
+                if (config.source === 'manhole_upload' && config.product_type) { // Ensure product_type exists to determine which configurator to open
                     const configBtn = document.createElement('button');
                     configBtn.className = 'configure-product-btn';
-                    configBtn.textContent = config.configured ? 'Edit Configuration' : 'Configure Product';
+                    configBtn.textContent = config.configured ? 'Edit Config' : 'Configure Product'; // Change text if already configured
                     configBtn.onclick = function() {
-                        // Pass the project name and the Firestore ID to the modal
-                        openConfigModal(config, selectedProjectName, config.firestoreId);
+                        window.openConfigModal(config, selectedProjectName, config.firestoreId);
                     };
                     actionsDiv.appendChild(configBtn);
                 }
@@ -263,7 +274,12 @@ if (projectsSnapshot.empty) {
                 actionsDiv.appendChild(deleteButton);
 
                 const detailsPre = document.createElement('pre');
-                detailsPre.textContent = JSON.stringify(config, null, 2);
+                // Ensure pre tags are added correctly, only showing raw JSON details
+                // Clean up properties that might be internal (e.g., firestoreId) for cleaner JSON view
+                const displayConfig = { ...config };
+                delete displayConfig.firestoreId; // Remove internal ID for cleaner display
+
+                detailsPre.textContent = JSON.stringify(displayConfig, null, 2);
                 listItem.appendChild(detailsDiv);
                 listItem.appendChild(actionsDiv);
                 listItem.appendChild(detailsPre);
@@ -271,14 +287,14 @@ if (projectsSnapshot.empty) {
             });
         }
 
-        // Prefill proposal fields
-        if (selectedProjectName && selectedProjectName !== "_DEFAULT_PROJECT_") {
+        // Prefill proposal fields based on selected project name
+        if (selectedProjectName && selectedProjectName !== DEFAULT_PROJECT_NAME) {
             const parts = selectedProjectName.split(" - ");
             customerNameInput.value = parts[0] || selectedProjectName;
             projectNameInput.value = parts.length > 1 ? parts.slice(1).join(" - ") : (parts[0] ? '' : selectedProjectName);
         } else { // Handle _DEFAULT_PROJECT_ or no project selected
             customerNameInput.value = '';
-            projectNameInput.value = 'Default Project'; // Or empty if no project selected
+            projectNameInput.value = ''; // Or 'Default Project' if you prefer a placeholder
         }
     }
 
@@ -292,9 +308,18 @@ if (projectsSnapshot.empty) {
             const configDocRef = doc(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION, configFirestoreId);
             await deleteDoc(configDocRef);
             console.log(`Configuration ${configFirestoreId} deleted from project ${projectName}.`);
-            // Refresh UI
-            await loadUserConfigurationsFromFirestore();
-            displayConfigurationsForSelectedProject();
+
+            // After deleting a config, check if the project subcollection is now empty.
+            // If it is, delete the project document itself to keep the Firestore structure clean.
+            const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
+            const configsSnapshot = await getDocs(configsRef);
+            if (configsSnapshot.empty) {
+                const projectDocRef = doc(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName);
+                await deleteDoc(projectDocRef);
+                console.log(`Project document ${projectName} also deleted as it is now empty.`);
+            }
+
+            await loadUserConfigurationsFromFirestore(); // Reload data and refresh UI
         } catch (error) {
             console.error("Error deleting configuration:", error);
             alert("Error deleting configuration: " + error.message);
@@ -308,11 +333,11 @@ if (projectsSnapshot.empty) {
     if (exportProjectButton) {
         exportProjectButton.addEventListener('click', function() {
             const selectedProjectName = projectSelectDropdown.value;
-            if (!selectedProjectName || !currentConfigsByProject[selectedProjectName] || currentConfigsByProject[selectedProjectName].length === 0) {
+            if (!selectedProjectName || !currentProjectsData[selectedProjectName] || currentProjectsData[selectedProjectName].length === 0) {
                 alert('Please select a project with configurations to export.');
                 return;
             }
-            const dataToExport = { [selectedProjectName]: currentConfigsByProject[selectedProjectName] };
+            const dataToExport = { [selectedProjectName]: currentProjectsData[selectedProjectName] };
             const jsonString = JSON.stringify(dataToExport, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const link = document.createElement('a');
@@ -338,23 +363,21 @@ if (projectsSnapshot.empty) {
             }
             if (confirm(`Are you sure you want to delete ALL configurations for project "${selectedProjectName}"? This cannot be undone.`)) {
                 try {
+                    // Use a batch write for efficiency when deleting multiple documents
+                    const batch = writeBatch(db);
                     const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, selectedProjectName, CONFIGURATIONS_SUBCOLLECTION);
                     const configsSnapshot = await getDocs(configsRef);
-                    const deletePromises = [];
+
                     configsSnapshot.forEach(configDoc => {
-                        deletePromises.push(deleteDoc(configDoc.ref));
+                        batch.delete(configDoc.ref);
                     });
-                    await Promise.all(deletePromises);
-                    console.log(`All configurations for project ${selectedProjectName} deleted.`);
+                    await batch.commit(); // Commit all deletes in one go
 
-                    // Optionally delete the project document itself if it's now empty
-                    if (currentConfigsByProject[selectedProjectName] && currentConfigsByProject[selectedProjectName].length === configsSnapshot.size) { // Check if all were indeed deleted
-                         const projectDocRef = doc(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, selectedProjectName);
-                         await deleteDoc(projectDocRef);
-                         console.log(`Project document ${selectedProjectName} also deleted as it is empty.`);
-                    }
+                    // Delete the project document itself if it's now empty of configurations
+                    const projectDocRef = doc(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, selectedProjectName);
+                    await deleteDoc(projectDocRef); // Delete project document
 
-
+                    console.log(`All configurations and project document for ${selectedProjectName} deleted.`);
                     await loadUserConfigurationsFromFirestore(); // Reload and refresh UI
                 } catch (error) {
                     console.error("Error clearing project configurations:", error);
@@ -375,20 +398,18 @@ if (projectsSnapshot.empty) {
                     try {
                         const projectsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
                         const projectsSnapshot = await getDocs(projectsRef);
-                        const deleteProjectPromises = [];
 
                         for (const projectDoc of projectsSnapshot.docs) {
+                            const batch = writeBatch(db);
                             const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectDoc.id, CONFIGURATIONS_SUBCOLLECTION);
                             const configsSnapshot = await getDocs(configsRef);
-                            const deleteConfigPromises = [];
                             configsSnapshot.forEach(configDoc => {
-                                deleteConfigPromises.push(deleteDoc(configDoc.ref));
+                                batch.delete(configDoc.ref);
                             });
-                            await Promise.all(deleteConfigPromises); // Delete all configs in this project
+                            await batch.commit(); // Commit deletes for configs in this project
 
-                            deleteProjectPromises.push(deleteDoc(projectDoc.ref)); // Then delete the project document
+                            await deleteDoc(projectDoc.ref); // Then delete the project document itself
                         }
-                        await Promise.all(deleteProjectPromises); // Delete all project documents
                         console.log("All project data cleared for user:", currentUser.uid);
 
                         await loadUserConfigurationsFromFirestore(); // Reload and refresh UI
@@ -402,7 +423,7 @@ if (projectsSnapshot.empty) {
         });
     }
 
-    // --- Proposal Generation (Remains the same for now, but will use Firestore data) ---
+    // --- Proposal Generation ---
     if (generateProposalButton) {
         generateProposalButton.addEventListener('click', async function() {
             // Initial UI Reset for new attempt
@@ -412,20 +433,9 @@ if (projectsSnapshot.empty) {
             if (copyMarkdownButton) copyMarkdownButton.style.display = 'none';
 
             const selectedProjectName = projectSelectDropdown.value;
-            let keyFromInput = apiKeyInput.value.trim();
-            let keyForApiCall = '';
+            const keyForApiCall = apiKeyInput.value.trim(); // Get current API key from input
 
             // API KEY VALIDATION (still client-side input for now)
-            if (keyFromInput && (keyFromInput.startsWith('sk-') || keyFromInput.startsWith('sk-proj-')) && keyFromInput.length > 20) {
-                keyForApiCall = keyFromInput;
-                if (keyForApiCall !== userProvidedApiKey) {
-                    localStorage.setItem(userApiKeyStorageKey, keyForApiCall);
-                    userProvidedApiKey = keyForApiCall;
-                }
-            } else if (userProvidedApiKey && (userProvidedApiKey.startsWith('sk-') || userProvidedApiKey.startsWith('sk-proj-')) && userProvidedApiKey.length > 20) {
-                keyForApiCall = userProvidedApiKey;
-            }
-
             if (!keyForApiCall || !(keyForApiCall.startsWith('sk-') || keyForApiCall.startsWith('sk-proj-')) || keyForApiCall.length < 20) {
                 alert('A valid OpenAI API Key is required. Please enter it, ensure it starts with "sk-" or "sk-proj-", is of sufficient length, and click "Save Key" if needed.');
                 if (apiKeyInput) apiKeyInput.focus();
@@ -438,7 +448,7 @@ if (projectsSnapshot.empty) {
                 return;
             }
 
-            const configsForProposal = currentConfigsByProject[selectedProjectName];
+            const configsForProposal = currentProjectsData[selectedProjectName];
             if (!configsForProposal || configsForProposal.length === 0) {
                 alert(`No configurations found for project "${selectedProjectName}" to include in the proposal.`);
                 return;
@@ -456,8 +466,8 @@ if (projectsSnapshot.empty) {
                 let details = `**Product Name:** ${config.derived_product_name || config.product_type || 'N/A'}\n`;
                 details += `**Product Code:** ${config.generated_product_code || 'N/A'}\n`;
                 if (config.catchpit_details) { details += `  * Type: ${config.catchpit_details.catchpit_type || 'N/A'}\n  * Depth: ${config.catchpit_details.depth_mm || 'N/A'}mm\n  * Pipework Diameter: ${config.catchpit_details.pipework_diameter || 'N/A'}\n  * Target Pollutant: ${config.catchpit_details.target_pollutant || 'N/A'}\n  * Removable Bucket: ${config.catchpit_details.removable_bucket ? 'Yes' : 'No'}\n`;}
-                else if (config.chamber_details && config.flow_control_params) { details += `  * Chamber Depth: ${config.chamber_details.chamber_depth_mm || 'N/A'}mm\n  * Chamber Diameter: ${config.chamber_details.chamber_diameter || 'N/A'}\n  * Target Flow Rate: ${config.flow_control_params.target_flow_lps || 'N/A'} L/s\n  * Design Head Height: ${config.flow_control_params.design_head_m || 'N/A'} m\n  * Bypass Required: ${config.flow_control_params.bypass_required ? 'Yes' : 'No'}\n`;}
-                else if (config.main_chamber && config.inlets) { details += `  * System Type: ${config.system_type_selection || 'N/A'}\n  * Water Application: ${config.water_application_selection || 'N/A'}\n  * Chamber Depth: ${config.main_chamber.chamber_depth_mm || 'N/A'}mm\n  * Chamber Diameter: ${config.main_chamber.chamber_diameter || 'N/A'}\n  * Inlets (${config.inlets.length}):\n`; config.inlets.forEach(inlet => { details += `    * Position: ${inlet.position}, Size: ${inlet.pipe_size || 'N/A'}, Material: ${inlet.pipe_material || 'N/A'} ${inlet.pipe_material_other ? `(${inlet.pipe_material_other})` : ''}\n`; });}
+                else if (config.product_type === "orifice_flow_control") { details += `  * Chamber Depth: ${config.chamber_details?.chamber_depth_mm || 'N/A'}mm\n  * Chamber Diameter: ${config.chamber_details?.chamber_diameter || 'N/A'}\n  * Pipework Size: ${config.chamber_details?.pipework_size || 'N/A'}\n  * Target Flow Rate: ${config.flow_control_params?.target_flow_lps || 'N/A'} L/s\n  * Design Head Height: ${config.flow_control_params?.design_head_m || 'N/A'} m\n  * Bypass Required: ${config.flow_control_params?.bypass_required ? 'Yes' : 'No'}\n`;}
+                else if (config.product_type === "universal_chamber") { details += `  * System Type: ${config.system_type_selection || 'N/A'}\n  * Water Application: ${config.water_application_selection || 'N/A'}\n  * Chamber Depth: ${config.main_chamber?.chamber_depth_mm || 'N/A'}mm\n  * Chamber Diameter: ${config.main_chamber?.chamber_diameter || 'N/A'}\n  * Inlets (${config.inlets?.length || 0}):\n`; config.inlets?.forEach(inlet => { details += `    * Position: ${inlet.position}, Size: ${inlet.pipe_size || 'N/A'}, Material: ${inlet.pipe_material || 'N/A'} ${inlet.pipe_material_other ? `(${inlet.pipe_material_other})` : ''}\n`; });}
                 else if (config.separator_details) { details += `  * Depth: ${config.separator_details.depth_mm || 'N/A'}mm\n  * Design Flow Rate: ${config.separator_details.flow_rate_lps || 'N/A'} L/s\n  * Pipework Diameter: ${config.separator_details.pipework_diameter || 'N/A'}\n  * Model Size/Space: ${config.separator_details.space_available || 'N/A'}\n  * Target Contaminants: ${(config.separator_details.target_contaminants || []).join(', ')}\n`;}
                 details += `  * Adoptable Status: ${config.adoptable_status || 'N/A'}\n`;
                 if (config.quote_details && typeof config.quote_details.estimated_sell_price === 'number') { details += `  * **Estimated Sell Price:** £${config.quote_details.estimated_sell_price.toFixed(2)}\n`; }
@@ -533,7 +543,7 @@ Website: suds-enviro.com
             ${configurationsDetails}
             `;
             const aiApiEndpoint = 'https://api.openai.com/v1/chat/completions';
-            console.log(">>> Preparing to send API request. Using API Key:", keyForApiCall.substring(0, 10) + "...");
+            console.log(">>> Preparing to send API request."); // Removed API key snippet for security best practice
 
             try {
                 const requestBody = {
@@ -559,7 +569,9 @@ Website: suds-enviro.com
                 });
 
                 if (!response.ok) {
-                    throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
+                    const errorData = await response.json();
+                    console.error("API error response:", errorData);
+                    throw new Error(`API request failed with status ${response.status}: ${errorData.error.message || response.statusText}`);
                 }
 
                 const responseData = await response.json();
@@ -567,7 +579,7 @@ Website: suds-enviro.com
 
                 if (responseData.choices && responseData.choices.length > 0) {
                     const aiGeneratedMarkdown = responseData.choices[0].message.content.trim();
-                    proposalOutputDiv.innerHTML = marked.parse(aiGeneratedMarkdown); // Use marked.js to render Markdown
+                    proposalOutputDiv.innerHTML = marked.parse(aiGeneratedMarkdown);
                     rawMarkdownForDownload = aiGeneratedMarkdown;
                     downloadProposalButton.style.display = 'inline-block';
                     copyMarkdownButton.style.display = 'inline-block';
@@ -604,7 +616,6 @@ Website: suds-enviro.com
                 alert('No proposal generated yet. Please generate a proposal first.');
                 return;
             }
-            // For HTML download, we create a basic HTML file with embedded CSS and the rendered Markdown
             const renderedHtml = marked.parse(rawMarkdownForDownload);
             const htmlContent = `
 <!DOCTYPE html>
@@ -730,11 +741,11 @@ Website: suds-enviro.com
         let formHtml = '';
         if (config.product_type === 'catchpit') {
             formHtml = document.getElementById('catchpit-form-template').innerHTML;
-        } else if (config.product_type === 'orifice_flow_control') { // Check for specific product type
+        } else if (config.product_type === 'orifice_flow_control') {
             formHtml = document.getElementById('orifice-form-template').innerHTML;
-        } else if (config.product_type === 'universal_chamber') { // Check for specific product type
+        } else if (config.product_type === 'universal_chamber') {
             formHtml = document.getElementById('universal-chamber-form-template').innerHTML;
-        } else if (config.product_type === 'hydrodynamic_separator') { // Check for specific product type
+        } else if (config.product_type === 'hydrodynamic_separator') {
             formHtml = document.getElementById('separator-form-template').innerHTML;
         }
         else {
@@ -746,42 +757,32 @@ Website: suds-enviro.com
         modalContent.appendChild(formWrapper);
 
         // Remove project/customer input at the top if present
-        const projectInput = formWrapper.querySelector('#customer_project_name, [name="customer_project_name"]');
-        if (projectInput) projectInput.closest('div.suds-form-group')?.remove(); // Use ?. for safety
+        const projectInput = formWrapper.querySelector('#modal_customer_project_name, [name="modal_customer_project_name"]');
+        if (projectInput) projectInput.closest('div.suds-form-group')?.remove();
 
-        // Fix duplicate IDs in modal form (prefix all IDs and for attributes with 'modal_' if not already)
-        // Also update name attributes to avoid duplicate names in DOM
-        formWrapper.querySelectorAll('[id]').forEach(el => {
-            if (!el.id.startsWith('modal_')) {
-                el.id = 'modal_' + el.id;
-            }
-        });
-        formWrapper.querySelectorAll('label[for]').forEach(label => {
-            if (!label.htmlFor.startsWith('modal_')) {
-                label.htmlFor = 'modal_' + label.htmlFor;
-            }
-        });
-        // Name attributes must also be unique in the DOM for forms to work correctly
-        formWrapper.querySelectorAll('[name]').forEach(el => {
-            const currentName = el.getAttribute('name');
-            if (currentName && !currentName.startsWith('modal_')) {
-                el.setAttribute('data-original-name', currentName); // Store original name
-                el.setAttribute('name', 'modal_' + currentName);
-            }
+        // The template IDs are now pre-prefixed with 'modal_' in all_configs.html itself.
+        // So, we just need to handle the name attributes here for the payload building function.
+        // We temporarily strip 'modal_' prefix from names before calling buildJsonPayload,
+        // then restore them immediately.
+        const elementsToRename = formWrapper.querySelectorAll('[name^="modal_"]');
+        elementsToRename.forEach(el => {
+            const originalName = el.getAttribute('name').substring(6); // Remove 'modal_' prefix
+            el.setAttribute('data-original-name', originalName); // Store original name
+            el.setAttribute('name', originalName); // Set name to original for payload function
         });
 
 
-        // Prefill form fields from config (for each type)
-        // Ensure corresponding prefill functions exist in product JS files and are available on window
+        // Prefill form fields from config
         setTimeout(() => { // Timeout ensures DOM is fully rendered before prefilling
+            const prefillOptions = { modalMode: true, prefillProjectName: projectName };
             if (config.product_type === 'catchpit' && window.prefillCatchpitFormFromConfig) {
-                window.prefillCatchpitFormFromConfig(config, { modalMode: true });
+                window.prefillCatchpitFormFromConfig(config, prefillOptions);
             } else if (config.product_type === 'orifice_flow_control' && window.prefillOrificeFormFromConfig) {
-                window.prefillOrificeFormFromConfig(config, { modalMode: true });
+                window.prefillOrificeFormFromConfig(config, prefillOptions);
             } else if (config.product_type === 'universal_chamber' && window.prefillUniversalChamberFormFromConfig) {
-                window.prefillUniversalChamberFormFromConfig(config, { modalMode: true });
+                window.prefillUniversalChamberFormFromConfig(config, prefillOptions);
             } else if (config.product_type === 'hydrodynamic_separator' && window.prefillSeparatorFormFromConfig) {
-                window.prefillSeparatorFormFromConfig(config, { modalMode: true });
+                window.prefillSeparatorFormFromConfig(config, prefillOptions);
             }
         }, 0);
 
@@ -795,16 +796,9 @@ Website: suds-enviro.com
 
                 let newPayload;
                 try {
-                    // Temporarily restore original names for buildJsonPayload to work
-                    formWrapper.querySelectorAll('[name^="modal_"]').forEach(el => {
-                        const originalName = el.getAttribute('data-original-name');
-                        if (originalName) {
-                            el.setAttribute('name', originalName);
-                            el.removeAttribute('data-original-name');
-                        }
-                    });
-
                     // Call the correct buildJsonPayload function based on product type
+                    // These functions now expect the name attributes to be the original ones,
+                    // which we temporarily restored above.
                     if (config.product_type === 'catchpit' && window.buildCatchpitJsonPayload) {
                         newPayload = window.buildCatchpitJsonPayload();
                     } else if (config.product_type === 'orifice_flow_control' && window.buildOrificeJsonPayload) {
@@ -817,28 +811,19 @@ Website: suds-enviro.com
                         alert('Could not determine how to build payload for this product type.');
                         return;
                     }
-
-                    // Restore modal-prefixed names immediately after payload is built
-                    formWrapper.querySelectorAll('[name]').forEach(el => {
-                        const currentName = el.getAttribute('name'); // This will be the original name now
-                        if (!currentName.startsWith('modal_') && el.getAttribute('data-original-name')) {
-                           el.setAttribute('name', 'modal_' + currentName);
-                           el.removeAttribute('data-original-name');
-                        }
-                    });
-
                 } catch (err) {
                     console.error("Error gathering form data in modal:", err);
                     alert('Error gathering form data: ' + err.message);
-                    // Ensure names are restored even on error
-                     formWrapper.querySelectorAll('[name]').forEach(el => {
-                        const currentName = el.getAttribute('name');
-                        if (!currentName.startsWith('modal_') && el.getAttribute('data-original-name')) {
-                           el.setAttribute('name', 'modal_' + currentName);
-                           el.removeAttribute('data-original-name');
+                    return;
+                } finally {
+                    // Always restore original names (prefixed with 'modal_') after payload is built or on error
+                    elementsToRename.forEach(el => {
+                        const originalName = el.getAttribute('data-original-name');
+                        if (originalName) {
+                            el.setAttribute('name', 'modal_' + originalName);
+                            el.removeAttribute('data-original-name');
                         }
                     });
-                    return;
                 }
 
                 if (!newPayload) {
@@ -847,13 +832,14 @@ Website: suds-enviro.com
                 }
 
                 // Preserve original ID and timestamp for update, mark as configured
-                newPayload.source = config.source; // Keep source tag if from manhole upload
-                newPayload.savedId = config.savedId; // Use original savedId
-                newPayload.firestoreId = configFirestoreId; // Use Firestore document ID for update
+                newPayload.source = config.source;
+                newPayload.savedId = config.savedId;
+                newPayload.firestoreId = configFirestoreId;
                 newPayload.savedTimestamp = new Date().toISOString();
-                newPayload.configured = true; // Mark as configured
+                newPayload.configured = true;
 
                 try {
+                    // The path is already correct from the original load
                     const configDocRef = doc(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION, configFirestoreId);
                     await setDoc(configDocRef, newPayload); // Use setDoc to update existing document
 
