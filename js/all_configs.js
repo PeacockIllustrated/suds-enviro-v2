@@ -672,24 +672,27 @@ Website: suds-enviro.com
     }
 
     // --- Initial Load Logic ---
-    // Listen for authentication state changes and load data once user is authenticated
     auth.onAuthStateChanged(user => {
-        currentUser = user;
-        if (currentUser) {
+    currentUser = user;
+    if (currentUser) {
+        console.log("User authenticated on all_configs.html. Attempting to load configs...");
+        // Add a small delay to ensure Firebase client SDK is fully settled
+        setTimeout(() => {
             loadUserConfigurationsFromFirestore();
-            loadApiKey(); // Load API key once user is authenticated
-        } else {
-            console.log("User not authenticated on all_configs.html. Redirection handled by main.js.");
-            // UI will show "Please log in..." message
-            configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">Please log in to view configurations.</p>';
-            populateProjectSelector(); // Clear project dropdown
-            if (exportProjectButton) exportProjectButton.disabled = true;
-            if (clearProjectButton) clearProjectButton.disabled = true;
-            if (generateProposalButton) generateProposalButton.disabled = true;
-            if (copyMarkdownButton) copyMarkdownButton.style.display = 'none';
-            if (downloadProposalButton) downloadProposalButton.style.display = 'none';
-        }
-    });
+            loadApiKey();
+        }, 500); // Wait for 500 milliseconds
+    } else {
+        console.log("User not authenticated on all_configs.html. Redirection handled by main.js.");
+        // UI will show "Please log in..." message
+        configList.innerHTML = '<p style="text-align: center; color: #666; margin: 20px 0;">Please log in to view configurations.</p>';
+        populateProjectSelector();
+        if (exportProjectButton) exportProjectButton.disabled = true;
+        if (clearProjectButton) clearProjectButton.disabled = true;
+        if (generateProposalButton) generateProposalButton.disabled = true;
+        if (copyMarkdownButton) copyMarkdownButton.style.display = 'none';
+        if (downloadProposalButton) downloadProposalButton.style.display = 'none';
+    }
+});
 
     // Prefill function for modal, now also accepts Firestore ID for updating
     window.openConfigModal = async function(config, projectName, configFirestoreId) {
