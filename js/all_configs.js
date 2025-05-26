@@ -399,6 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const projectsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
                         const projectsSnapshot = await getDocs(projectsRef);
 
+                        // Iterate and delete configurations within each project first, then the project document
                         for (const projectDoc of projectsSnapshot.docs) {
                             const batch = writeBatch(db);
                             const configsRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectDoc.id, CONFIGURATIONS_SUBCOLLECTION);
