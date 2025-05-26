@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const block = document.createElement('div');
         block.className = 'inlet-config-block';
         block.id = `inlet_config_${safePositionId}`;
-        block.innerHTML = `<h4>Inlet Configuration: ${position}<button type="button" class="inlet-remove-btn" data-position="${position}" title="Remove Inlet ${position}">Remove</button></h4><div class="suds-form-group"><label class="suds-label" for="inlet_pipe_size_${safePositionId}">Pipework Size:</label><select class="suds-select inlet-pipe-size" id="inlet_pipe_size_${safePositionId}" name="inlet_pipe_size_${safePositionId}" required><option value="">-- Select Size --</option><option value="110mm">110mm</option><option value="160mm">160mm</option><option value="225mm">225mm</option></select></div><div class="suds-form-group"><label class="suds-label" for="inlet_pipe_material_${safePositionId}">Pipe System Material:</label><select class="suds-select inlet-material-select" id="inlet_pipe_material_${safePositionId}" name="inlet_pipe_material_${safePositionId}" data-position="${position}" required><option value="">-- Select Material --</option><option value="PVC">PVC</option><option value="Clay">Clay</option><option value="Twinwall">Twinwall</option><option value="Other">Other</option></select></div><div id="inlet_pipe_material_other_container_${safePositionId}" class="suds-conditional-options" style="display:none;"><div class="suds-form-group"><label class="suds-label" for="inlet_pipe_material_other_${safePositionId}">Specify other material:</label><input class="suds-input inlet-other-material" type="text" id="inlet_pipe_material_other_${safePositionId}" name="inlet_pipe_material_other_${safePositionId}"></div></div><button type="button" class="suds-button apply-all-btn" data-position="${position}" title="Apply these Size/Material settings to all other active inlets">Apply All</button>`;
+        block.innerHTML = `<h4>Inlet Configuration: ${position}<button type="button" class="inlet-remove-btn" data-position="${position}" title="Remove Inlet ${position}">Remove</button></h4><div class="suds-form-group"><label class="suds-label" for="inlet_pipe_size_${safePositionId}">Pipework Size:</label><select class="suds-select inlet-pipe-size" id="inlet_pipe_size_${safePositionId}" name="inlet_pipe_size_${safePositionId}" required><option value="">-- Select Size --</option><option value="110mm">110mm</option><option value="160mm">160mm</option><option value="225mm">225mm</option></select></div><div class="suds-form-group"><label class="suds-label" for="inlet_pipe_material_${safePosId}">Pipe System Material:</label><select class="suds-select inlet-material-select" id="inlet_pipe_material_${safePosId}" name="inlet_pipe_material_${safePosId}" data-position="${position}" required><option value="">-- Select Material --</option><option value="PVC">PVC</option><option value="Clay">Clay</option><option value="Twinwall">Twinwall</option><option value="Other">Other</option></select></div><div id="inlet_pipe_material_other_container_${safePosId}" class="suds-conditional-options" style="display:none;"><div class="suds-form-group"><label class="suds-label" for="inlet_pipe_material_other_${safePosId}">Specify other material:</label><input class="suds-input inlet-other-material" type="text" id="inlet_pipe_material_other_${safePosId}" name="inlet_pipe_material_other_${safePosId}"></div></div><button type="button" class="suds-button apply-all-btn" data-position="${position}" title="Apply these Size/Material settings to all other active inlets">Apply All</button>`;
         activeInletConfigsContainer.appendChild(block);
         block.querySelector('.inlet-remove-btn').addEventListener('click', handleRemoveInletClick);
         const inletMaterialSelect = block.querySelector('.inlet-material-select');
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const targetSizeSelect = document.getElementById(`inlet_pipe_size_${targetSafePosId}`);
                 const targetMaterialSelect = document.getElementById(`inlet_pipe_material_${targetSafePosId}`);
                 const targetOtherContainer = document.getElementById(`inlet_pipe_material_other_container_${targetSafePosId}`);
-                const targetOtherInput = document.getElementById(`inlet_pipe_material_other_${targetSafePosId}`);
+                const targetOtherInput = document.getElementById(`inlet_pipe_material_other_${safePosId}`); // Corrected: Should be targetOtherInput based on targetSafePosId
                 if (targetSizeSelect) targetSizeSelect.value = sourceSize;
                 if (targetMaterialSelect) targetMaterialSelect.value = sourceMaterial;
                 if (targetOtherContainer) targetOtherContainer.style.display = sourceMaterial === 'Other' ? 'block' : 'none';
@@ -357,23 +357,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const prefillId = urlParams.get('prefillId');
 
         try {
-            const userProjectsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION);
-            const projectConfigsCollectionRef = collection(userProjectsCollectionRef, projectName, CONFIGURATIONS_SUBCOLLECTION);
+            // Correct path for saving: users/[UID]/projects/[ProjectName]/configurations/[configId]
+            const configsCollectionRef = collection(db, USERS_COLLECTION, currentUser.uid, PROJECTS_SUBCOLLECTION, projectName, CONFIGURATIONS_SUBCOLLECTION);
 
             let configDocRef;
             if (prefillId) {
-                configDocRef = doc(projectConfigsCollectionRef, prefillId);
+                configDocRef = doc(configsCollectionRef, prefillId);
                 payload.firestoreId = prefillId;
                 payload.savedId = prefillId;
                 payload.source = urlParams.get('source') || payload.source;
                 payload.configured = true;
             } else {
-                configDocRef = doc(projectConfigsCollectionRef);
+                configDocRef = doc(configsCollectionRef);
                 payload.firestoreId = configDocRef.id;
                 payload.savedId = configDocRef.id;
             }
 
             payload.savedTimestamp = new Date().toISOString();
+
+            // Diagnostic log:
+            console.log("Attempting to save Universal Chamber configuration to:", configDocRef.path);
+            console.log("Payload:", JSON.stringify(payload, null, 2));
+
 
             await setDoc(configDocRef, payload);
 
